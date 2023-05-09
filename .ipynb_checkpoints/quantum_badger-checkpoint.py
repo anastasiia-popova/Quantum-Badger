@@ -1,7 +1,8 @@
 import numpy as np
 import random
-import os 
 from math import * 
+
+
 
 # Methods
 
@@ -14,6 +15,7 @@ def input_state(r, m, n):
     Args:
         r (float): The squeezing parameter.
         m (int): The total number of modes.
+        n (int): The number of filled inputs.
         
     Returns:
         list: A list of squeezing parameters with length m, where only half of the modes have the value of r.
@@ -49,7 +51,7 @@ def input_matrix(r, phi, m, n):
 
     return A
 
-def set_input(r, phi, export = True):
+def set_input(r, phi, path=None):
     
     """
     Returns a diagonal input matrix A.
@@ -57,12 +59,13 @@ def set_input(r, phi, export = True):
     Args:
         r (list): A list of squeezing parameters with length m.
         phi (list): A list of input random phases with length m.
-        export (bool, optional): Whether to export a file with information about the input state. Defaults to True.
+        path (str, optional): A path to the directory
         
     Returns:
         np.ndarray: A diagonal input matrix A of shape (m, m) with complex128 dtype, where the diagonal elements are 
                     calculated as -exp(1j * phi[i]) * tanh(r[i]) / 2 for i in the range [0, m).
     """
+    
     
     m = len(r)
     A = np.zeros((m, m), dtype=np.complex128)
@@ -70,16 +73,16 @@ def set_input(r, phi, export = True):
     for i in range(m):
         A[i, i] = -np.exp(1j * phi[i]) * np.tanh(r[i]) / 2
         
-    if export == True:
+    if path is not None:
         with open(path + r"/initial_state.dat", "w") as ouf:
-        
+
             ouf.write("N\tr\tphi\tA_real\tA_imag\n")
 
             for k in range(A.shape[0]):
                 ouf.write(
                     f"{k}\t{r[k]}\t{phi[k]}\t{A[k, k].real}\t{A[k, k].imag}\n"
-                )
-            
+                )  
+        print("Data were exported to " + path + r"/initial_state.dat")
 
     return A
     
@@ -247,7 +250,7 @@ def interferometer_approx(n_bs, ind, phi_0, psi_0, eta_0, error,  m):
 
     return U
 
-def get_random_interferometer(m, n_bs, export = True):
+def get_random_interferometer(m, n_bs, path=None):
     
     """
     Generates a random interferometer matrix U with beam splitters and phase shifters.
@@ -255,7 +258,7 @@ def get_random_interferometer(m, n_bs, export = True):
     Args:
         m (int): The size of the square matrix U.
         n_bs (int): The number of beam splitters (BS) and phase shifters (PS) to use in the interferometer.
-        export (bool, optional): If True, the generated matrix U and parameters are exported to files. Default is True.
+        path (str, optional): A path to the directory
         
     Returns:
         U (np.ndarray): A complex128 matrix of shape (m, m), representing the random interferometer with n_bs beam splitters
@@ -293,8 +296,9 @@ def get_random_interferometer(m, n_bs, export = True):
             @ ps_2(psi, ind[i], i, m)
         )
         
-    if export == True:
-        
+
+    if path is not None:
+
         with open(path + "/parameters_of_interferometer.dat", "w") as ouf:
 
             ouf.write(
@@ -307,6 +311,8 @@ def get_random_interferometer(m, n_bs, export = True):
                 )
 
         export_complex_matrix(path + r"/matrix_U.dat", U)
+        print("Data were exported to " + path + r"/matrix_U.dat")
+        
 
     return U
 
@@ -579,7 +585,7 @@ def import_parameters_interferometer(path, file_name):
     return ind, phi, psi, eta
     
     
-def set_device_parameters(r, A, U, export = False):
+def set_device_parameters(r, A, U, path=None):
     
     n_mc = 0
     n_cutoff = 0 
@@ -589,10 +595,10 @@ def set_device_parameters(r, A, U, export = False):
     
     M = M_matrix(U, A) 
     
-    if export == True:
+    if path is not None:
         
         with open(path + "/GBS_matrix.dat", "w") as ouf:
-        
+
             ouf.write(str(m) + "\t" + str(n)+ "\t" + str(r) +
                       "\t" + str(n_cutoff)+ "\t" + str(n_mc) + "\t" + str(batch_size) + "\n") 
 
@@ -601,7 +607,7 @@ def set_device_parameters(r, A, U, export = False):
                     ouf.write(str(M[k, j].real) + "\t" + str(M[k, j].imag) + "\t")
                 if k < (m + 1):
                     ouf.write("\n")
-        
+
         print("Data were exported to " + path + "/GBS_matrix.dat")
         
 
@@ -709,7 +715,7 @@ def uniform_sampling_tr(batch_size, n, m):
     return samples
     
 
-def choose_default_device(m, r, export = True):
+def choose_default_device(m, r, path=None):
     
     """
     Initializes the Gaussian Boson Sampling (GBS) device by setting up the input state, interferometer matrix,
@@ -718,7 +724,7 @@ def choose_default_device(m, r, export = True):
     Args:
         m (int): The number of modes in the GBS device.
         r (float): The squeezing parameter for the input state.
-        export (bool, optional): Whether to export all files related to the simulation. Defaults to False.
+        path (str, optional): A path to the directory. 
         
     Returns:
         tuple: A tuple containing two elements:
@@ -728,6 +734,7 @@ def choose_default_device(m, r, export = True):
     
     
     # Input initialization
+    n=round(m/2)
     r_s, phi_s = input_state(r, m, n)
     A = input_matrix(r_s, phi_s, m, n)
     n_bs=m**2
@@ -739,8 +746,12 @@ def choose_default_device(m, r, export = True):
     M = M_matrix(U, A)
     
     # Export all files related to the simulation
-    if export == True:
+    if path is not None:
         export_input(path, r_s, phi_s, A, ind, phi, psi, eta, n_bs, U, M, n)
+        print("Data were exported " 
+              + path 
+              + r" in files initial_state.dat, parameters_of_interferometer.dat, matrix_U.dat, GBS_matrix.dat ")
+        
     
  
     return M, U
