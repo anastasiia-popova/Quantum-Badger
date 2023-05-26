@@ -3,9 +3,7 @@ import random
 from math import * 
 
 
-
 # Methods
-
 def input_state(r, m, n):
 
     """
@@ -798,27 +796,6 @@ def import_gbs_output(path):
     return np.array(samples), probs   #, test
 
 
-def C_nm(x, y):
-    
-    """
-    Calculates the binomial coefficient C(x, y) using the factorial formula.
-    
-    Args:
-        x (int): The total number of items.
-        y (int): The number of items to choose.
-        
-    Returns:
-        int: The binomial coefficient C(x, y) as an integer, obtained by dividing the factorial
-             of x by the product of the factorials of (x - y) and y.
-    """
-
-    res = np.math.factorial(int(x)) / (
-        np.math.factorial(int(x - y)) * np.math.factorial(int(y))
-    )
-
-    return int(res)
-
-
 def convert_01_0123(list_det):
     
     """
@@ -930,6 +907,8 @@ def number_of_comb(n,m):
     else:
         return 0
     
+    
+    
 def frobenius_distance(A, B):
     
     """
@@ -998,3 +977,386 @@ def import_samples(path, file_name):
         samples.append(sample)
             
     return samples
+
+
+def fock_basis_size(n,m):
+    
+    """
+    Calculates the size of the Fock basis for a given number of photons and modes.
+
+    The Fock basis size represents the number of possible states in a quantum system
+    with 'n' photons in 'm' modes.
+
+    Args:
+        n (int): Number of particles in the system.
+        m (int): Number of modes in the system.
+
+    Returns:
+        int: The size of the Fock basis.
+
+    Examples:
+        >>> fock_basis_size(2, 3)
+        10
+        >>> fock_basis_size(3, 2)
+        6
+    """
+    
+    return number_of_comb(m+n-1,n)
+
+def permut(lst):
+    """
+    Generates all permutations of a given list.
+
+    This function takes a list 'lst' and generates all possible permutations
+    of its elements. Each permutation is returned as a list.
+
+    Args:
+        lst (list): The input list for which permutations are to be generated.
+
+    Yields:
+        list: A permutation of the input list.
+
+    Returns:
+        list: A list of all permutations generated.
+
+    Raises:
+        None.
+
+    Examples:
+        >>> list(permut([1, 2, 3]))
+        [[1, 2, 3], [1, 3, 2], [2, 1, 3], [2, 3, 1], [3, 1, 2], [3, 2, 1]]
+        >>> list(permut(['a', 'b']))
+        [['a', 'b'], ['b', 'a']]
+    """
+        
+    if len(lst) == 0:
+        yield []
+        #return []
+        
+    elif len(lst) == 1:
+        yield lst
+        
+        #return [lst]
+    else:
+        l = []
+        prev_x = []
+        
+        for i in range(len(lst)):
+            x = lst[i]
+            xs = lst[:i] + lst[i+1:]
+            
+            if not x in prev_x:
+                prev_x.append(x)
+                for p in permut(xs):
+                    yield [x]+p
+                    #l.append([x]+p)
+        return l
+    
+def find_partition(k,N):
+    """
+    Finds all partitions of an integer 'k' with parts no larger than 'N'.
+
+    This function takes an integer 'k' and an upper bound 'N', and returns
+    a list of all possible partitions of 'k' into positive integers, where
+    each part is no larger than 'N'. A partition is represented as a list of
+    positive integers.
+
+    Args:
+        k (int): The integer to be partitioned.
+        N (int): The upper bound for the parts in the partition.
+
+    Returns:
+        list: A list of all partitions of 'k' with parts no larger than 'N'.
+
+    """
+
+    res = []
+
+    if k == 0:
+        return [[]]
+
+    elif k == 1:
+        return [[1]]
+
+    i_max = min(k, N)
+
+    for i in range(1, i_max + 1):
+        res_i = find_partition(k - i, i)
+
+        for a in res_i:
+            res.append([i] + a)
+
+    return res
+        
+
+def gen_states(N, m):
+    """
+    Generates possible distrubution of N photons in m modes.
+
+    This function takes the number of particles 'N' and the number of modes 'm'
+    and generates all possible occupied states (without permutations). 
+    A state is represented as a list of non-negative integers, where the sum 
+    of the integers is equal to 'N' and the length of the state is equal to 'm'. 
+
+    Args:
+        N (int): The number of photons.
+        m (int): The number of modes.
+
+    Returns:
+        list: A list of all valid states for the given 'N' and 'm'.
+
+    Raises:
+        ValueError: If 'N' or 'm' is not a positive integer.
+
+    """
+    if not isinstance(N, int) or N <= 0:
+        raise ValueError("N must be a positive integer.")
+
+    if not isinstance(m, int) or m <= 0:
+        raise ValueError("m must be a positive integer.")
+
+    res = []
+
+    states = find_partition(N, N)
+
+    for s in states:
+        if len(s) < m:
+            zer = m - len(s)
+            res.append(s + [0] * zer)
+        else:
+            res.append(s)
+
+    for r in res:
+        if len(r) > m:
+            res.remove(r)
+
+    return res            
+        
+def fock_basis_choice(N,m):
+    
+    """
+    Generates the Fock basis choice for a given number of particles and modes.
+
+    This function takes the number of particles 'N' and the number of modes 'm'
+    and generates the Fock basis choice. The Fock basis choice represents all
+    possible permutations of states where the sum of the integers is equal to 'N'
+    and the length of the state is equal to 'm'. The function utilizes the 'gen_states'
+    and 'permut' functions to generate the Fock basis choice.
+
+    Args:
+        N (int): The number of particles.
+        m (int): The number of modes.
+
+    Returns:
+        list: The Fock basis choice, which is a list of all possible permutations of
+              states that satisfy the given 'N' and 'm'.
+
+    Raises:
+        ValueError: If 'N' or 'm' is not a positive integer.
+
+    Examples:
+        >>> fock_basis_choice(3, 2)
+        [[2, 1], [1, 2], [3, 0], [0, 3]]
+        >>> fock_basis_choice(2, 3)
+        [[1, 1, 0], [1, 0, 1], [0, 1, 1], [2, 0, 0], [0, 2, 0], [0, 0, 2]]
+    """
+    if not isinstance(N, int) or N <= 0:
+        raise ValueError("N must be a positive integer.")
+
+    if not isinstance(m, int) or m <= 0:
+        raise ValueError("m must be a positive integer.")
+        
+    
+    basis = []
+    
+    states = gen_states(N,m)
+    
+    for s in states:
+        for p in permut(s):
+            basis.append(p)
+        
+    return basis
+
+def prn_to_tr_detectors(samples):
+    
+    """
+    Convert a nested list of PRN-detected samples to a list of threshold-detected samples.
+
+    Parameters:
+    samples (list): A nested list of samples with PRN detection. 
+
+    Returns:
+    list: A nested list of samples with threshold detection. 
+    """
+    return [[1 if item > 1 else item for item in s] for s in samples]
+
+
+
+def threshold_basis_set(m):
+    
+    """
+    Generates the threshold basis set for a given number of modes.
+
+    This function takes the number of modes 'm' and generates the threshold basis set.
+    The threshold basis set represents all possible permutations of states with 'm'
+    modes, where each state consists of 1's and 0's.
+
+    Args:
+        m (int): The number of modes.
+
+    Returns:
+        list: The threshold basis set, which is a list of all possible permutations of
+              states consisting of 1's followed by 0's for the given 'm'.
+
+    Raises:
+        ValueError: If 'm' is not a positive integer.
+
+    Examples:
+        >>> threshold_basis_set(2)
+        [[0, 0], [1, 0], [0, 1], [1, 1]]
+        >>> threshold_basis_set(3)
+        [[0, 0, 0],
+         [1, 0, 0],
+         [0, 1, 0],
+         [0, 0, 1],
+         [1, 1, 0],
+         [1, 0, 1],
+         [0, 1, 1],
+         [1, 1, 1]]
+    """
+    if not isinstance(m, int) or m <= 0:
+        raise ValueError("m must be a positive integer.")
+        
+    all_permutations = []
+
+    for i in range(m+1):
+
+        all_permutations.extend(
+            list(permut([1]*i + [0]*(m-i)))
+        )
+    return all_permutations
+
+
+def prob_exact(sample, M):
+    
+    """
+    Calculates the exact probability for a given sample and Gaussian matrix.
+
+    This function takes a sample and a matrix, and calculates the exact probability
+    based on the given sample. The sample is converted using the 'convert_01_0123' function,
+    and a reduced matrix is obtained using the 'red_mat' function.
+
+    Args:
+        sample (list): The sample to calculate the probability for.
+        M (numpy.ndarray): The matrix for computation.
+
+    Returns:
+        float: The exact probability for the given sample and matrix.
+        
+    """
+
+    
+    clicked_detectors = convert_01_0123(sample)    
+    M_sub = red_mat(M, clicked_detectors)
+    
+    m = len(M_sub)
+    stat =  np.zeros((m+1), dtype = np.float64) 
+    
+    for i in range(m+1):
+        detect_event = [1 for j in range(i)] + [0]*(m-i) 
+        permutations = list(permut(detect_event))
+
+        if i == 0:
+            stat[i] += 1
+
+        else:
+            for s in permutations:
+                stat[i] += Z_i(s, M_sub,nu=0)
+
+
+    for c in range(m):
+        for h in range(c+1, m+1):
+            stat[h] -= (
+                stat[c]*number_of_comb(m - c, m - h)
+            )
+    
+    if len(M_sub) != len(M): 
+        norm = Z(M_sub)/Z(M)
+        probability = norm*stat[m]/sum(stat)    
+    else:
+        if np.allclose(M_sub, M):
+            probability = stat[m]/sum(stat) 
+        else:
+            raise 'Error'
+    
+    return probability
+
+
+# @njit
+def Z(M, nu=0):
+    
+    """
+    Calculates the partition function value for a given matrix.
+
+    This function takes a matrix 'M' and calculates the the partition function
+    based on its eigenvalues. The matrix is first transformed into its Hermitian
+    conjugate, and the eigenvalues are computed. 
+    If `nu!=0` computes partition function for sectors. 
+
+    Args:
+        M (numpy.ndarray): The matrix for computation.
+        nu (float, optional): Coordinate of a sector. Defaults to 0.
+
+    Returns:
+        if nu != 0:
+            complex: The partition function value for a sector.
+        else:
+            float: The partition function value for the given matrix.
+
+    """
+    
+    M_hermitian = M.conjugate().T@M
+    
+    eig = np.linalg.eigh(M_hermitian)[0]
+    
+    z = 1.0 
+    for i in range(len(eig)):
+        if nu!=0:
+            p = 4 * eig[i] * np.exp(1j * nu)
+        else:
+            p = 4 * eig[i]
+            
+        z *= (1 - p)**(-0.5)
+            
+    return z
+
+
+def Z_i(sample, M, nu=0):
+    
+    """
+    Calculates the partition function value for a specific sample.
+
+    This function takes a sample, a Gaussian matrix 'M', and an optional parameter 'nu',
+    and calculates the the partition function. The sample is
+    converted using the 'convert_01_0123' function, and a reduced matrix is
+    obtained using the 'red_mat' function. 
+    If `nu!=0` computes partition function for sectors. 
+
+    Args:
+        sample (list): The sample for computation.
+        M (numpy.ndarray): The matrix for computation.
+        nu (float, optional): The parameter for Z calculation. Defaults to 0.
+
+    Returns:
+        if nu != 0:
+            complex: The partition function value of the sample and the sector.
+        else:
+            float: The partition function value of the sample.
+    """
+    
+    clicked_detectors = convert_01_0123(sample)            
+    M_sub = red_mat(M, clicked_detectors)
+    z = Z(M_sub,nu)
+    
+    return z
+
