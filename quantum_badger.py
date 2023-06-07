@@ -1,6 +1,21 @@
+# Created by Anastasia Popova ppv.nastya@proton.me
 import numpy as np
 import random
 from math import * 
+import os
+
+import shutil
+import subprocess
+
+
+def return_path(filename='demo.ipynb'):
+    """Uses os to return the correct path of a directory.
+    Default is a directory containing 'demo.ipynb' file. 
+    """
+    absolute_path = os.path.abspath(filename)
+    directory_name = os.path.dirname(absolute_path).replace("\\" , "/" )
+    #full_path = os.path.join(directory_name, filename)
+    return directory_name #full_path
 
 
 # Methods
@@ -550,6 +565,43 @@ def import_interferometer(path, file_name):
 
     return U
 
+def import_complex_matrix(path, file_name):
+
+    """
+    Imports complex matrix.
+    
+    Args:
+        path (str): The path to the directory where the file is located.
+        file_name (str): The name of the file to be imported.
+        
+    Returns:
+        numpy.ndarray: The imported matrix as a numpy array with complex128 dtype.
+    """
+   
+    data_U = np.genfromtxt(path + file_name)
+
+    m = len(data_U)
+    
+    U = np.zeros((m, m), dtype=np.complex128)
+
+    real_part = []
+    imaginary_part = []
+
+    for i in range(m):
+        for k in range(0, 2 * m, 2):
+            real_part.append(data_U[i, k])
+
+    for i in range(m):
+        for k in range(1, 2 * m + 1, 2):
+            imaginary_part.append(data_U[i, k])
+
+    for i in range(m**2):
+        U[i // m, i % m] = real_part[i] + 1j * imaginary_part[i]
+
+    #print("Data were imported from " + path + file_name)
+
+    return U
+
 
 def import_parameters_interferometer(path, file_name):
     
@@ -978,6 +1030,43 @@ def import_samples(path, file_name):
             
     return samples
 
+def submatriсes_export(M, samples, path):
+    
+    """
+    Exports complex submatrices and their corresponding sample ids to a specified path.
+
+    Args:
+        M (complex matrix): The GBS complex matrix.
+        samples (list): A list of samples.
+        path (str): The path where the submatrices and sample ids will be exported.
+
+    Returns:
+        str: A message indicating the successful export of submatrices and sample ids.
+    """
+    
+    batch_of_samples = samples
+    file_path = path + '/input'
+
+    for i in range(len(batch_of_samples)):
+        clicked_detectors = convert_01_0123(batch_of_samples[i])    
+        M_sub = red_mat(M, clicked_detectors)
+        export_complex_matrix(file_path + f'/Submatrix_{i}.dat', M_sub)
+
+    # Export ids and samples 
+    # Submatrices are saved according samples ids (id is a serial number in a batch of samples)
+    with open(file_path+'/samples_ids.dat', 'w') as ouf:
+        ouf.writelines(
+            (
+                (str(i) + "\t"
+                 +','.join(map(str, batch_of_samples[i])).replace(',',''))
+                + '\n' for i in range(len(batch_of_samples))
+            )
+        )
+        
+    return f'Submatrices and their ids were exported to {file_path}'
+
+
+
 
 def fock_basis_size(n,m):
     
@@ -1360,3 +1449,276 @@ def Z_i(sample, M, nu=0):
     
     return z
 
+
+def compute_minors(path):
+    """
+    Computes minors for all samples and saves the results in the specified path.
+    In the specified directory it needs to have directories with names `input` 
+    and `output`. `input` contains files `samples_ids.dat` and `Submatrix_i.dat` 
+    (`i` is an integer index specified in  `samples_ids.dat`). 
+
+    Args:
+        path (str): The path to `input` and `output` directories.
+
+    Returns:
+        str: A message confirming the completion of minor computation for all samples.
+    """
+
+    # It is a script which 0) import ids
+    # 1) takes file input/Submatrix_1.dat and copies it as input/Submatrix.dat 
+    # 2) runs Minors.cpp 
+    # 3) saves the output files output/Minors_01.dat as output/Minors_01_1.dat
+    
+    data_ids = np.genfromtxt(path + '/input/samples_ids.dat', dtype=str)
+
+    ids = [int(i) for i in data_ids[:,0]]
+    files = (
+            [
+                '/output/Minors0-1.dat',
+                '/output/Minors2.dat', 
+                '/output/Minors3.dat', 
+                '/output/Minors4.dat',
+                '/input/Submatrix.dat'
+            ])
+
+    for i in ids:
+        shutil.copy(path+f'/input/Submatrix_{i}.dat', path+'/input/Submatrix.dat')
+
+        cmd = "cpp/Minors.cpp"
+        subprocess.call(["g++", cmd])
+        subprocess.call("./a.out") 
+        print("Finished:", cmd.split("/")[1], f"for sample #{i}")
+
+        shutil.copy(path+f'/output/Minors0-1.dat', path+f'/output/Minors0-1_{i}.dat')
+        shutil.copy(path+f'/output/Minors2.dat', path+f'/output/Minors2_{i}.dat')
+        shutil.copy(path+f'/output/Minors3.dat', path+f'/output/Minors3_{i}.dat')
+        shutil.copy(path+f'/output/Minors4.dat', path+f'/output/Minors4_{i}.dat')
+
+        for f in files:
+            if os.path.isfile(path + f):
+                os.remove(path + f)
+            else:
+                print("Error: %s file not found" % path + f)
+                
+    return print(f"Minors for all {len(ids)} samples are computed.")
+
+
+class Moments:
+    
+    def __init__(
+        self,
+        id_,
+        n_moments,
+        path=return_path(filename='demo.ipynb'),
+    ): 
+        self.id_ = id_
+        self.n_moments = n_moments
+        self.matrix = import_complex_matrix(path, f"/input/Submatrix_{id_}.dat") #attribute (a thing which is stored in our class)        
+
+
+    def moment_formula(self, n, *args):
+       
+        m = 0
+        
+        for x in args:
+            moments = x
+            
+        if n == 2:
+            m = (moments[0] + 
+                 2 * moments[1] - 
+                 moments[0] ** 2)
+        elif n == 3:
+            m = (moments[0] + 6 * moments[1] + 6 * moments[2] 
+                 - 3 * moments[0] * (moments[0] + 2 * moments[1]) 
+                 + 2 * moments[0] ** 3)
+            
+        elif n == 4:
+            m_2 = moments[0] + 2 * moments[1]
+            m_3 = moments[0] + 6 * moments[1] + 6 * moments[2]
+            m_4 = moments[0] + 14 * moments[1] + 36 * moments[2] + 24 * moments[3]
+            m = (
+                m_4 - 4 * m_3 * moments[0] 
+                - 3 * m_2 ** 2 + 12 * m_2 * moments[0] ** 2 
+                - 6 * moments[0] ** 4)
+
+
+        return m
+    
+    def import_minors(self, path):
+        
+        m = len(self.matrix)
+        Nu = int(10*m)
+        dnu = 2*np.pi/Nu
+
+
+        # Import Minors
+
+        data_minors = np.genfromtxt(path+f'/output/Minors0-1_{self.id_}.dat')
+        data_minors2 = np.genfromtxt(path+f'/output/Minors2_{self.id_}.dat')
+        data_minors3 = np.genfromtxt(path+f'/output/Minors3_{self.id_}.dat')
+        data_minors4 = np.genfromtxt(path+f'/output/Minors4_{self.id_}.dat')
+
+        p2 = round(factorial(m)/(factorial(m-2)*2)) 
+        p3 = round(factorial(m)/(factorial(m - 3)*factorial(3)))
+        p4 = round(factorial(m)/(factorial(m - 4)*factorial(4)))
+
+
+        Z_v_0 = np.zeros((Nu),dtype=np.complex128)
+
+        Z_v_1 = np.zeros((m, Nu),dtype=np.complex128)
+
+        Z_v_2 = np.zeros((p2, Nu),dtype=np.complex128)
+
+        Z_v_3 = np.zeros((p3, Nu),dtype=np.complex128)
+
+        Z_v_4 = np.zeros((p4, Nu),dtype=np.complex128)
+
+        for j in range(Nu):
+             Z_v_0[j] =  data_minors[j,1:2] + 1j*data_minors[j,2:3]
+
+        for j in range(Nu):
+            for n in range(0,2*m,2):
+                Z_v_1[n//2,j] =  data_minors[j,int(3+n)] + 1j*data_minors[j,int(4+n)] 
+
+        for j in range(Nu):
+            for n in range(0,2*p2,2):
+                Z_v_2[n//2,j] =  data_minors2[j,int(1+n)] + 1j*data_minors2[j,int(2+n)] 
+
+        for j in range(Nu):
+            for n in range(0,2*p3,2):
+                Z_v_3[n//2,j] =  data_minors3[j,int(1+(n))] + 1j*data_minors3[j,int(2+(n))] 
+
+        for j in range(Nu):
+            for n in range(0,2*p4,2):
+                Z_v_4[n//2,j] =  data_minors4[j,int(1+(n))] + 1j*data_minors4[j,int(2+(n))] 
+
+
+        Z_v_0f = np.fft.fft(Z_v_0)/Nu
+        Z_v_1f = np.fft.fft(Z_v_1)/Nu            
+        Z_v_2f = np.fft.fft(Z_v_2)/Nu
+        Z_v_3f = np.fft.fft(Z_v_3)/Nu
+        Z_v_4f = np.fft.fft(Z_v_4)/Nu 
+        
+        return Z_v_0f, Z_v_1f, Z_v_2f, Z_v_3f, Z_v_4f
+
+
+    def compute_moments(self, Z_v_0f, Z_v_1f, Z_v_2f, Z_v_3f, Z_v_4f):
+
+        m = len(self.matrix)
+        Nuk = int(10*m)
+        dnu = 2*np.pi/Nuk
+
+        mean_ = np.zeros(Nuk)
+        disp_ = np.zeros(Nuk)
+        m3_ = np.zeros(Nuk)
+        m4_ = np.zeros(Nuk)
+
+        n_ij_v =  np.zeros(Nuk)
+        n_ijk_v = np.zeros(Nuk)
+        n_ijkl_v = np.zeros(Nuk)
+        n_ijklp_v = np.zeros(Nuk)
+
+        ind_2 = []
+        ind_3 = []
+        ind_4 = []
+
+
+        for i in range(m):
+                for j in range(i+1, m):
+                    ind_2.append([i,j]) 
+
+        for i in range(m):
+                for j in range(i+1, m):
+                    for k in range(j+1, m):
+                        ind_3.append([i,j,k]) 
+
+        for i in range(m):
+            for j in range(i+1, m):
+                for k in range(j+1, m):
+                    for l in range(k+1, m):
+                        ind_4.append([i,j,k,l]) 
+
+
+        for z in range(Nuk): 
+            for j in range(m):
+                mean_[z] += 1 - (Z_v_1f[j,z]/Z_v_0f[z]).real
+
+
+        for nu in range(Nuk):
+            i_ = 0
+            for i in range(m):
+                for j in range(i+1, m):
+                    n_ij_v[nu] += 1 - (( Z_v_1f[j,nu] + Z_v_1f[i,nu] - Z_v_2f[i_,nu])/Z_v_0f[nu]).real
+                    i_ += 1
+            disp_[nu] =  self.moment_formula(2, [mean_[nu], n_ij_v[nu]])
+
+
+        for nu in range(Nuk):
+            i_= 0
+            for i in range(m):
+                for j in range(i+1, m):
+                    for k in range(j+1, m):
+
+                        z1 = ind_2.index([i,j])
+                        z2 = ind_2.index([i,k])
+                        z3 = ind_2.index([j,k])
+
+                        n_ijk_v[nu] += 1 - ((Z_v_1f[i,nu] + Z_v_1f[j,nu] + Z_v_1f[k,nu] - Z_v_2f[z1,nu] - Z_v_2f[z2,nu] - Z_v_2f[z3,nu] + Z_v_3f[i_,nu])/Z_v_0f[nu]).real
+                        i_ += 1 
+
+            m3_[nu] = self.moment_formula(3, [mean_[nu], n_ij_v[nu], n_ijk_v[nu]])
+
+        for nu in range(Nuk): 
+            i_= 0
+            for i in range(m):
+                for j in range(i+1, m):
+                    for k in range(j+1, m):
+                        for l in range(k+1, m):
+
+                            z1 = ind_2.index([i,j])
+                            z2 = ind_2.index([i,k])
+                            z3 = ind_2.index([i,l])
+
+                            z4 = ind_2.index([j,k])
+                            z5 = ind_2.index([k,l])
+                            z6 = ind_2.index([j,l])
+
+                            h1 = ind_3.index([i,j,k])
+                            h2 = ind_3.index([j,k,l])
+                            h3 = ind_3.index([i,k,l])
+                            h4 = ind_3.index([i,j,l])
+
+                            n_ijkl_v[nu] += 1 - ((Z_v_1f[i,nu] + Z_v_1f[j,nu] + Z_v_1f[k,nu] + Z_v_1f[l,nu] - Z_v_2f[z1,nu] - Z_v_2f[z2,nu] - Z_v_2f[z3,nu] - Z_v_2f[z4,nu] - Z_v_2f[z5,nu] - Z_v_2f[z6,nu] + Z_v_3f[h1,nu] + Z_v_3f[h2,nu] +  Z_v_3f[h3,nu] + Z_v_3f[h4,nu] -  Z_v_4f[i_,nu])/Z_v_0f[nu]).real 
+
+                            i_ += 1 
+
+            m4_[nu] = self.moment_formula(4, [mean_[nu], n_ij_v[nu], n_ijk_v[nu], n_ijkl_v[nu]])
+
+            return mean_, disp_, m3_, m4_
+        
+    def get_moments(self, path):
+        
+        Z_v_0f, Z_v_1f, Z_v_2f, Z_v_3f, Z_v_4f = self.import_minors(path)
+
+        mean_, disp_, m3_, m4_ = self.compute_moments(Z_v_0f, Z_v_1f, Z_v_2f, Z_v_3f, Z_v_4f)
+        
+        return mean_, disp_, m3_, m4_
+
+
+    # Export Moments
+
+    def export_moments(self, path):
+        
+        m = len(self.matrix)
+        Nuk = int(10*m)
+        
+        mean_, disp_, m3_, m4_ = self.get_moments(path)
+        
+        with open(path+f"/output/Moments_{self.id_}.dat", 'w') as ouf:
+            for nu in range(Nuk):
+                ouf.write(f"{mean_[nu].real}\t{disp_[nu].real}\t{m3_[nu].real}\t{m4_[nu].real}\t")
+                if nu < (Nuk+1):
+                    ouf.write('\n')
+                    
+        return f"Moments were exported to {path}/output/Moments_{self.id_}.dat"
+            
