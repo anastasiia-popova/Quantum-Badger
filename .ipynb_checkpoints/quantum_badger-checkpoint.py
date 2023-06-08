@@ -6,7 +6,7 @@ import os
 
 import shutil
 import subprocess
-
+old_settings = np.seterr(all='ignore') 
 
 def return_path(filename='demo.ipynb'):
     """Uses os to return the correct path of a directory.
@@ -1503,7 +1503,7 @@ def compute_minors(path):
     return print(f"Minors for all {len(ids)} samples are computed.")
 
 
-class Moments:
+class MomentUtility():
     
     def __init__(
         self,
@@ -1512,111 +1512,130 @@ class Moments:
         path=return_path(filename='demo.ipynb'),
     ): 
         self.id_ = id_
+        self.path = path
         self.n_moments = n_moments
-        self.matrix = import_complex_matrix(path, f"/input/Submatrix_{id_}.dat") #attribute (a thing which is stored in our class)        
+        self.matrix = import_complex_matrix(path, f"/input/Submatrix_{id_}.dat") #attribute (a thing which is stored in our class)
+        self.n_modes = len(self.matrix)
+        self.n_sector_max = round(10*self.n_modes)
+        self.n_sector_step = 2*np.pi/self.n_sector_max
 
 
     def moment_formula(self, n, *args):
-       
-        m = 0
-        
-        for x in args:
-            moments = x
-            
-        if n == 2:
-            m = (moments[0] + 
-                 2 * moments[1] - 
-                 moments[0] ** 2)
-        elif n == 3:
-            m = (moments[0] + 6 * moments[1] + 6 * moments[2] 
-                 - 3 * moments[0] * (moments[0] + 2 * moments[1]) 
-                 + 2 * moments[0] ** 3)
-            
-        elif n == 4:
-            m_2 = moments[0] + 2 * moments[1]
-            m_3 = moments[0] + 6 * moments[1] + 6 * moments[2]
-            m_4 = moments[0] + 14 * moments[1] + 36 * moments[2] + 24 * moments[3]
-            m = (
-                m_4 - 4 * m_3 * moments[0] 
-                - 3 * m_2 ** 2 + 12 * m_2 * moments[0] ** 2 
-                - 6 * moments[0] ** 4)
+    
+        m = 0 
 
+        for x in args:
+                moments = x
+
+        if n == 2:
+            m = moments[0] + 2*moments[1] - moments[0]**2
+
+        if n == 3:
+            m = (moments[0] + 6*moments[1] + 6*moments[2] 
+                 - 3*moments[0]*(moments[0] + 2*moments[1]) 
+                 +  2*moments[0]**3)
+
+
+        if n == 4:
+            m_2 = moments[0] + 2*moments[1]
+
+            m_3 = moments[0] + 6*moments[1] + 6*moments[2]
+
+            m_4 = moments[0] + 14*moments[1] + 36*moments[2] + 24*moments[3]
+
+            m =  m_4 - 4*m_3*moments[0]- 3*m_2**2 + 12*m_2*moments[0]**2 - 6*moments[0]**4
+
+        if n == 5:
+
+            m_2 = moments[0] + 2*moments[1]
+
+            m_3 = moments[0] + 6*moments[1] + 6*moments[2]
+
+            m_4 = moments[0] + 14*moments[1] + 36*moments[2] + 24*moments[3]
+
+            m_5 = moments[0] + 30*moments[1] + 200*moments[2] + 40*moments[3] + 120*moments[4]
+
+            m = (m_5 + 5*moments[0]*m_4 + 10*m_2*m_3 + 10*m_3*moments[0]**2 + 
+                 15*moments[0]*m_2**2 + 10*m_2*moments[0]**3 + moments[0]**5)
 
         return m
     
-    def import_minors(self, path):
+    def import_minors(self):
         
-        m = len(self.matrix)
-        Nu = int(10*m)
-        dnu = 2*np.pi/Nu
-
+        m = self.n_modes
+        Nu = self.n_sector_max
+        dnu = self.n_sector_step
 
         # Import Minors
-
-        data_minors = np.genfromtxt(path+f'/output/Minors0-1_{self.id_}.dat')
-        data_minors2 = np.genfromtxt(path+f'/output/Minors2_{self.id_}.dat')
-        data_minors3 = np.genfromtxt(path+f'/output/Minors3_{self.id_}.dat')
-        data_minors4 = np.genfromtxt(path+f'/output/Minors4_{self.id_}.dat')
-
-        p2 = round(factorial(m)/(factorial(m-2)*2)) 
-        p3 = round(factorial(m)/(factorial(m - 3)*factorial(3)))
-        p4 = round(factorial(m)/(factorial(m - 4)*factorial(4)))
-
-
+        
+        
+        # For the fist moment
+        data_minors = np.genfromtxt(self.path+f'/output/Minors0-1_{self.id_}.dat')
         Z_v_0 = np.zeros((Nu),dtype=np.complex128)
-
         Z_v_1 = np.zeros((m, Nu),dtype=np.complex128)
-
-        Z_v_2 = np.zeros((p2, Nu),dtype=np.complex128)
-
-        Z_v_3 = np.zeros((p3, Nu),dtype=np.complex128)
-
-        Z_v_4 = np.zeros((p4, Nu),dtype=np.complex128)
-
+        
         for j in range(Nu):
              Z_v_0[j] =  data_minors[j,1:2] + 1j*data_minors[j,2:3]
 
         for j in range(Nu):
             for n in range(0,2*m,2):
-                Z_v_1[n//2,j] =  data_minors[j,int(3+n)] + 1j*data_minors[j,int(4+n)] 
-
+                Z_v_1[n//2,j] =  data_minors[j,int(3+n)] + 1j*data_minors[j,int(4+n)]               
+        # FFT 
+        Z_v_0f = np.fft.fft(Z_v_0)/Nu
+        Z_v_1f = np.fft.fft(Z_v_1)/Nu      
+        
+        # For the second moment
+        data_minors2 = np.genfromtxt(self.path+f'/output/Minors2_{self.id_}.dat')
+        p2 = round(factorial(m)/(factorial(m-2)*2)) 
+        Z_v_2 = np.zeros((p2, Nu),dtype=np.complex128)
+        
         for j in range(Nu):
             for n in range(0,2*p2,2):
-                Z_v_2[n//2,j] =  data_minors2[j,int(1+n)] + 1j*data_minors2[j,int(2+n)] 
-
+                Z_v_2[n//2,j] =  data_minors2[j,int(1+n)] + 1j*data_minors2[j,int(2+n)]             
+        # FFT 
+        Z_v_2f = np.fft.fft(Z_v_2)/Nu
+        
+        # For the third moment
+        data_minors3 = np.genfromtxt(self.path+f'/output/Minors3_{self.id_}.dat')
+        p3 = round(factorial(m)/(factorial(m - 3)*factorial(3)))
+        Z_v_3 = np.zeros((p3, Nu),dtype=np.complex128)
+        
         for j in range(Nu):
             for n in range(0,2*p3,2):
                 Z_v_3[n//2,j] =  data_minors3[j,int(1+(n))] + 1j*data_minors3[j,int(2+(n))] 
-
+        # FFT        
+        Z_v_3f = np.fft.fft(Z_v_3)/Nu
+        
+        # For the fourth moment
+        data_minors4 = np.genfromtxt(self.path+f'/output/Minors4_{self.id_}.dat')
+        p4 = round(factorial(m)/(factorial(m - 4)*factorial(4)))
+        Z_v_4 = np.zeros((p4, Nu),dtype=np.complex128)
+        
         for j in range(Nu):
             for n in range(0,2*p4,2):
                 Z_v_4[n//2,j] =  data_minors4[j,int(1+(n))] + 1j*data_minors4[j,int(2+(n))] 
-
-
-        Z_v_0f = np.fft.fft(Z_v_0)/Nu
-        Z_v_1f = np.fft.fft(Z_v_1)/Nu            
-        Z_v_2f = np.fft.fft(Z_v_2)/Nu
-        Z_v_3f = np.fft.fft(Z_v_3)/Nu
+        # FFT             
         Z_v_4f = np.fft.fft(Z_v_4)/Nu 
         
         return Z_v_0f, Z_v_1f, Z_v_2f, Z_v_3f, Z_v_4f
 
-
+ 
     def compute_moments(self, Z_v_0f, Z_v_1f, Z_v_2f, Z_v_3f, Z_v_4f):
+        
+        m = self.n_modes
+        Nu = self.n_sector_max
+        dnu = self.n_sector_step
+        
+        mean_ = np.zeros(Nu)
+        disp_ = np.zeros(Nu)
+        m3_ = np.zeros(Nu)
+        m4_ = np.zeros(Nu)
 
-        m = len(self.matrix)
-        Nuk = int(10*m)
-        dnu = 2*np.pi/Nuk
 
-        mean_ = np.zeros(Nuk)
-        disp_ = np.zeros(Nuk)
-        m3_ = np.zeros(Nuk)
-        m4_ = np.zeros(Nuk)
+        n_ij_v =  np.zeros(Nu)
+        n_ijk_v = np.zeros(Nu)
+        n_ijkl_v = np.zeros(Nu)
 
-        n_ij_v =  np.zeros(Nuk)
-        n_ijk_v = np.zeros(Nuk)
-        n_ijkl_v = np.zeros(Nuk)
-        n_ijklp_v = np.zeros(Nuk)
 
         ind_2 = []
         ind_3 = []
@@ -1639,12 +1658,12 @@ class Moments:
                         ind_4.append([i,j,k,l]) 
 
 
-        for z in range(Nuk): 
+        for z in range(Nu): 
             for j in range(m):
                 mean_[z] += 1 - (Z_v_1f[j,z]/Z_v_0f[z]).real
 
 
-        for nu in range(Nuk):
+        for nu in range(Nu):
             i_ = 0
             for i in range(m):
                 for j in range(i+1, m):
@@ -1653,7 +1672,7 @@ class Moments:
             disp_[nu] =  self.moment_formula(2, [mean_[nu], n_ij_v[nu]])
 
 
-        for nu in range(Nuk):
+        for nu in range(Nu):
             i_= 0
             for i in range(m):
                 for j in range(i+1, m):
@@ -1668,7 +1687,8 @@ class Moments:
 
             m3_[nu] = self.moment_formula(3, [mean_[nu], n_ij_v[nu], n_ijk_v[nu]])
 
-        for nu in range(Nuk): 
+
+        for nu in range(Nu): 
             i_= 0
             for i in range(m):
                 for j in range(i+1, m):
@@ -1694,11 +1714,11 @@ class Moments:
 
             m4_[nu] = self.moment_formula(4, [mean_[nu], n_ij_v[nu], n_ijk_v[nu], n_ijkl_v[nu]])
 
-            return mean_, disp_, m3_, m4_
+        return mean_ , disp_ , m3_ , m4_ 
+
+    def get_moments(self):
         
-    def get_moments(self, path):
-        
-        Z_v_0f, Z_v_1f, Z_v_2f, Z_v_3f, Z_v_4f = self.import_minors(path)
+        Z_v_0f, Z_v_1f, Z_v_2f, Z_v_3f, Z_v_4f = self.import_minors()
 
         mean_, disp_, m3_, m4_ = self.compute_moments(Z_v_0f, Z_v_1f, Z_v_2f, Z_v_3f, Z_v_4f)
         
@@ -1707,18 +1727,344 @@ class Moments:
 
     # Export Moments
 
-    def export_moments(self, path):
+    def export_moments(self):
         
-        m = len(self.matrix)
-        Nuk = int(10*m)
+        m = self.n_modes
+        Nu = self.n_sector_max
+           
+        mean_, disp_, m3_, m4_ = self.get_moments()
         
-        mean_, disp_, m3_, m4_ = self.get_moments(path)
-        
-        with open(path+f"/output/Moments_{self.id_}.dat", 'w') as ouf:
-            for nu in range(Nuk):
+        with open(self.path+f"/output/Moments_{self.id_}.dat", 'w') as ouf:
+            for nu in range(Nu):
                 ouf.write(f"{mean_[nu].real}\t{disp_[nu].real}\t{m3_[nu].real}\t{m4_[nu].real}\t")
-                if nu < (Nuk+1):
+                if nu < (Nu+1):
                     ouf.write('\n')
                     
-        return f"Moments were exported to {path}/output/Moments_{self.id_}.dat"
+        return f"Moments were exported to {self.path}/output/Moments_{self.id_}.dat"
+    
+    
+class CumulantUtility(MomentUtility):
+    
+    
+    def import_moments(self):
+        
+        m = self.n_modes 
+        Nu = self.n_sector_max
+        dnu = self.n_sector_step
+        
+
+
+        data_minors = np.genfromtxt(self.path + f'/output/Minors0-1_{self.id_}.dat')
+
+        Z_v_0 = np.zeros((Nu),dtype=np.complex128)
+
+        Z_v_1 = np.zeros((m, Nu),dtype=np.complex128)
+
+        for j in range(Nu):
+             Z_v_0[j] =  data_minors[j,1] + 1j*data_minors[j,2]
+
+        for j in range(Nu):
+            for n in range(0,2*m,2):
+                Z_v_1[n//2,j] =  data_minors[j,int(3+n)] + 1j*data_minors[j,int(4+n)] 
+
+
+        Z_v_0f =  np.zeros((Nu), dtype = np.complex128)
+        Z_v_1f = np.zeros((m, Nu), dtype = np.complex128)
+
+        Z_v_0f = np.fft.fft(Z_v_0)/Nu
+        Z_v_1f = np.fft.fft(Z_v_1)/Nu
+
+        data_moments = np.genfromtxt(self.path+f'/output/Moments_{self.id_}.dat')
+
+        m0 = (Z_v_0f[:]/Z_v_0[0]).real #normalization
+        m1 = data_moments[:, 0]
+        m2 = data_moments[:, 1]
+        m3 = data_moments[:, 2]
+        m4 = data_moments[:, 3]
+        
+        return m0, m1, m2, m3, m4
+        
+    def gauss_fun(self, x, *args):
+
+        """
+        Computes the Gaussian function with optional additional terms.
+
+        Args:
+            x: Numeric input value.
+            *args: Variable number of arguments representing the coefficients.
+
+        Returns:
+            Numeric result of the Gaussian function computation.
+
+        Examples:
+            >>> gauss_fun(2, 1, 0, 1)
+            0.1353352832366127
+        """
+
+        for c in args:
+            c = args
+
+        if len(c) == 3:    
+
+            res = c[0]*np.exp(-(x - c[1])**2/(2*c[2])) 
+
+        elif len(c) == 4:
+
+            res = c[0]*np.exp(-(x - c[1])**2/(2*c[2])) * np.exp(+ c[3]*(x - c[1])**3/(6*c[2]**3)) 
+
+        elif len(c) == 5:
+
+            res = c[0]*np.exp(-(x - c[1])**2/(2*c[2])) * np.exp(+ c[3]*(x - c[1])**3/(6*c[2]**3)) * np.exp(+ c[4]*(x - c[1])**4/(8*c[2]**4))
+
+        return res 
+
+    def get_cumulants(self, m0, m1, m2, m3, m4):
+    
+        # Approximation 
+        # The 2nd order approximation 
+        m = self.n_modes
+        Nu = self.n_sector_max
+        n_cut = int(m+10)
+
+        A_2 = np.zeros(Nu)
+        Mu1_2 = np.zeros(Nu)
+        Mu2_2 = np.zeros(Nu)
+
+        for nu in range(Nu):
+
+            A_2[nu] =  m0[nu] 
+            Mu1_2[nu] = m1[nu] 
+            Mu2_2[nu] = m2[nu] 
+
+
+            for z in range(300):
+                s0 = 0
+                s1 = 0 
+                s2 = 0 
+                s3 = 0
+                s4 = 0
+
+                for j in range(n_cut):
+
+                    s0 +=  self.gauss_fun(j, A_2[nu], Mu1_2[nu], Mu2_2[nu])
+                    s1 +=  self.gauss_fun(j, A_2[nu], Mu1_2[nu], Mu2_2[nu])* j
+                    s2 +=  self.gauss_fun(j, A_2[nu], Mu1_2[nu], Mu2_2[nu])* j**2
+
+                if s0 > 10**(-15) and s0==s0:
+
+                    m0_ = s0 
+                    m1_ = s1/s0 
+                    m2_ = s2/s0 - m1_**2
+
+                    A_2[nu] += 0.1*(m0[nu]  - m0_ )
+                    Mu1_2[nu] += 0.1*(m1[nu] - m1_) 
+                    Mu2_2[nu] += 0.1*(m2[nu] - m2_)  
+
+                else:
+
+                    A_2[nu] += 0
+                    Mu1_2[nu] += 0
+                    Mu2_2[nu] += 0
+
+
+        # The 3nd order approximation 
+
+        A_3 = np.zeros(Nu)
+        Mu1_3 = np.zeros(Nu)
+        Mu2_3 = np.zeros(Nu)
+        Mu3_3 = np.zeros(Nu)
+
+        for nu in range(Nu):
+
+            A_3[nu] = m0[nu]
+            Mu1_3[nu] = m1[nu] 
+            Mu2_3[nu] = m2[nu] 
+            Mu3_3[nu] = 0
+
+
+
+            for z in range(500):
+                s0 = 0
+                s1 = 0 
+                s2 = 0 
+                s3 = 0
+
+
+
+                for j in range(n_cut):
+
+                    s0 += self.gauss_fun(j, A_3[nu], Mu1_3[nu], Mu2_3[nu], Mu3_3[nu])
+                    s1 += self.gauss_fun(j, A_3[nu], Mu1_3[nu], Mu2_3[nu], Mu3_3[nu])* j
+                    s2 += self.gauss_fun(j, A_3[nu], Mu1_3[nu], Mu2_3[nu], Mu3_3[nu])* j**2
+                    s3 += self.gauss_fun(j, A_3[nu], Mu1_3[nu], Mu2_3[nu], Mu3_3[nu])* j**3
+
+                # attention! s0 may diverge 
+
+                if s0==s0:
+
+
+                    m0_ = s0 
+                    m1_ = s1/s0 
+                    m2_ = s2/s0 - m1_**2
+                    m3_ = s3/s0 - 3*m2_*m1_ - m1_**3
+
+                    A_3[nu] += 0.05*(m0[nu] - m0_)
+                    Mu1_3[nu] += 0.1*(m1[nu] - m1_ )
+                    Mu2_3[nu] += 0.1*(m2[nu] - m2_)  
+                    Mu3_3[nu] += 0.05*(m3[nu] - m3_) 
+
+                else:
+                    A_3[nu] += 0
+                    Mu1_3[nu] += 0
+                    Mu2_3[nu] += 0
+                    Mu3_3[nu] += 0 
+
+        # The 4th order approximation 
+
+        A_4 = np.zeros(Nu)
+        Mu1_4 = np.zeros(Nu)
+        Mu2_4 = np.zeros(Nu)
+        Mu3_4 = np.zeros(Nu)
+        Mu4_4 = np.zeros(Nu)
+
+
+        for nu in range(Nu):
+
+            A_4[nu] = m0[nu]
+            Mu1_4[nu] = m1[nu] 
+            Mu2_4[nu] = m2[nu] 
+            Mu3_4[nu] = 0
+            Mu4_4[nu] = 0 
+
+            n_0 = 0
+
+            for z in range(800):
+
+                s0 = 0
+                s1 = 0 
+                s2 = 0 
+                s3 = 0
+                s4 = 0
+
+
+                for j in range(n_0,n_cut):
+
+                    s0 +=  self.gauss_fun(j, A_4[nu], Mu1_4[nu], Mu2_4[nu], Mu3_4[nu], Mu4_4[nu])
+                    s1 +=  self.gauss_fun(j, A_4[nu], Mu1_4[nu], Mu2_4[nu], Mu3_4[nu], Mu4_4[nu])* j
+                    s2 +=  self.gauss_fun(j, A_4[nu], Mu1_4[nu], Mu2_4[nu], Mu3_4[nu], Mu4_4[nu])* j**2
+                    s3 +=  self.gauss_fun(j, A_4[nu], Mu1_4[nu], Mu2_4[nu], Mu3_4[nu], Mu4_4[nu])* j**3
+                    s4 +=  self.gauss_fun(j, A_4[nu], Mu1_4[nu], Mu2_4[nu], Mu3_4[nu], Mu4_4[nu])* j**4
+
+                # attention! s0 may diverge 
+
+                if s0==s0:
+                    m0_ = s0 
+                    m1_ = s1/s0 
+                    m2_ = s2/s0 - m1_**2
+                    m3_ = s3/s0 - 3*m2_*m1_ - m1_**3
+                    m4_ = s4/s0 - 4*m3_*m1_ - 3*m2_**2 - 6*m2_*m1_**2 - m1_**4
+
+                    step_ini_0 =  0.1
+                    step_ini_1 =  0.1
+                    step_ini_2 =  0.1
+                    step_ini_3 =  0.05
+                    step_ini_4 =  0.008
+
+                    A_4[nu] +=  step_ini_0*(m0[nu] - m0_) 
+                    Mu1_4[nu] +=  step_ini_1*(m1[nu] - m1_)
+                    Mu2_4[nu] +=  step_ini_2*(m2[nu] - m2_) 
+                    Mu3_4[nu] +=  step_ini_3*(m3[nu] - m3_) 
+                    Mu4_4[nu] +=  step_ini_4*(m4[nu] - m4_)
+
+                else:
+                    A_4[nu] += 0
+                    Mu1_4[nu] += 0
+                    Mu2_4[nu] += 0 
+                    Mu3_4[nu] += 0 
+                    Mu4_4[nu] += 0
+         
+                    
+        return A_2, Mu1_2, Mu2_2,  A_3, Mu1_3, Mu2_3, Mu3_3,  A_4, Mu1_4, Mu2_4, Mu3_4, Mu4_4
+
+
+                
+    def prob_approx(self, export_probabilities=True, export_cumulants=True):
+        
+        m = self.n_modes
+        Nu = self.n_sector_max
+        m0, m1, m2, m3, m4 = self.import_moments()
+        A_2, Mu1_2, Mu2_2,  A_3, Mu1_3, Mu2_3, Mu3_3,  A_4, Mu1_4, Mu2_4, Mu3_4, Mu4_4 = self.get_cumulants(m0, m1, m2, m3, m4)
+        
+        data_minors = np.genfromtxt(self.path + f'/output/Minors0-1_{self.id_}.dat')
+
+        Z_v_0 = np.zeros((Nu),dtype=np.complex128)
+
+        for j in range(Nu):
+             Z_v_0[j] =  data_minors[j,1] + 1j*data_minors[j,2]
+
+        normalization = Z_v_0[0].real
+
+
+        probability_approx_2 = 0
+        probability_approx_3 = 0
+        probability_approx_4 = 0
+
+
+        for j in range(Nu):
+            if  self.gauss_fun(m, A_4[j],Mu1_4[j], Mu2_4[j],Mu3_4[j],Mu4_4[j] ) > 10**(-15) and A_2[j]!= 0:
+                k_cut = j
+
+
+        for j in range(int(Nu/10)):
+            if  self.gauss_fun(m, A_4[j],Mu1_4[j], Mu2_4[j],Mu3_4[j],Mu4_4[j] ) < 10**(-15):
+                k_0 = j
+
+
+        # choosing of k_0 and k_cut (cut off of the number of sectors) 
+        # is heuristic, it may vary for more accurate computation 
+
+        for k in range(k_0,k_cut):
+            probability_approx_2 += self.gauss_fun(m, A_2[k], Mu1_2[k], Mu2_2[k])/normalization 
+            probability_approx_3 += self.gauss_fun(m, A_3[k], Mu1_3[k], Mu2_3[k], Mu3_3[k])/normalization
+            probability_approx_4 += self.gauss_fun(m, A_4[k], Mu1_4[k], Mu2_4[k], Mu3_4[k], Mu4_4[k])/normalization       
             
+        if export_probabilities == True:
+            
+            
+            with open(self.path + f"/output/Result_{self.id_}.dat", 'w') as ouf:
+                header = '\t'.join(
+                    ['m', 'k_0', 'k_cut', 'p2', 'p3', 'p4']
+                )
+                ouf.write(header + '\n')
+
+                values = '\t'.join(
+                    [str(m), str(k_0), str(k_cut), 
+                    str(probability_approx_2), 
+                     str(probability_approx_3),
+                     str(probability_approx_4)]
+                )
+                ouf.write(values + '\n')
+            
+            
+        if export_cumulants==True:
+            
+            with open(self.path+f"/output/Cumulants_{self.id_}.dat", 'w') as ouf:
+                header = '\t'.join(
+                    ['nu', 'A2', 'M12', 'M22', 'A3', 'M13', 'M23', 'M33', 'A4', 'M14', 'M24', 'M34', 'M44']
+                )
+                ouf.write(header + '\n')
+
+                for k in range(Nu):
+                    values = '\t'.join(
+                        [str(k), 
+                         str(A_2[k]), str(Mu1_2[k]), str(Mu2_2[k]), 
+                         str(A_3[k]), str(Mu1_3[k]), str(Mu2_3[k]), str(Mu3_3[k]), 
+                         str(A_4[k]), str(Mu1_4[k]), str(Mu2_4[k]), str(Mu3_4[k]), str(Mu4_4[k])]
+                    )
+                    ouf.write(values + '\n')
+            
+
+        return probability_approx_2, probability_approx_3, probability_approx_4
+    
+
+
