@@ -20,12 +20,18 @@ or
 
 After 
 `M = set_device_parameters(r, A, U)`
+Or 
+`M = import_input(path, "/GBS_matrix.dat")`
 
+## Compute minors 
+
+`compute_minors()`
+compute minors for all samples in `input`
 
 ## Compute moments 
 
 
-there is a class `Moments()` which compute moments from minors up to 4th order for one sample. 
+there is a class `MomentUtility()` which compute moments from minors up to 4th order for one sample. 
 To use it one needs to crete an instanse of the class
 
 `moments =  MomentUtility(id_ = 1, n_moments = 4, path=path) `
@@ -33,6 +39,7 @@ To use it one needs to crete an instanse of the class
 where `id_` is the id of a sample, `n_moments` number of moments for computation. (
 
 With export
-`moments.export_moments(path)`
+`moments.export_moments()`
 
-`m1_, m2_, m3_, m4_ = moments.get_moments(path)`
+`m1_, m2_, m3_, m4_ = moments.get_moments()`
+

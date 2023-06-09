@@ -1450,7 +1450,7 @@ def Z_i(sample, M, nu=0):
     return z
 
 
-def compute_minors(path):
+def compute_minors(path=return_path):
     """
     Computes minors for all samples and saves the results in the specified path.
     In the specified directory it needs to have directories with names `input` 
@@ -1508,7 +1508,7 @@ class MomentUtility():
     def __init__(
         self,
         id_,
-        n_moments,
+        n_moments=4,
         path=return_path(filename='demo.ipynb'),
     ): 
         self.id_ = id_
@@ -2008,11 +2008,15 @@ class CumulantUtility(MomentUtility):
         probability_approx_2 = 0
         probability_approx_3 = 0
         probability_approx_4 = 0
+        
+        k_0=0
+        k_cut=Nu
 
 
         for j in range(Nu):
-            if  self.gauss_fun(m, A_4[j],Mu1_4[j], Mu2_4[j],Mu3_4[j],Mu4_4[j] ) > 10**(-15) and A_2[j]!= 0:
+            if self.gauss_fun(m, A_4[j],Mu1_4[j], Mu2_4[j],Mu3_4[j],Mu4_4[j]) > 10**(-15) and A_2[j]!= 0:
                 k_cut = j
+                
 
 
         for j in range(int(Nu/10)):
