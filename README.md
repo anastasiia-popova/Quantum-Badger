@@ -23,6 +23,32 @@ After
 Or 
 `M = import_input(path, "/GBS_matrix.dat")`
 
+## Get DataFrame for basis states
+
+```
+df_basis = get_basis_df(M)
+```
+```
+# Find probability of a specific sample in DataFrame
+sample = [0]*m
+df_basis["probability_exact"].loc[str(sample)] 
+
+```
+## Generate, export and imput samples
+
+```
+batch_size = 10 
+samples = uniform_sampling_tr(batch_size,n,m)
+
+export_samples(samples, path, "/samples.dat")
+
+samples = import_samples(path, "/samples.dat")
+```
+
+## Compute submatrices according to samples
+
+`submatriсes_export(M, samples, path)`
+
 ## Compute minors 
 
 `compute_minors()`
@@ -39,7 +65,31 @@ To use it one needs to crete an instanse of the class
 where `id_` is the id of a sample, `n_moments` number of moments for computation. (
 
 With export
-`moments.export_moments()`
 
-`m1_, m2_, m3_, m4_ = moments.get_moments()`
+```
+moments.export_moments()
 
+m1_, m2_, m3_, m4_ = moments.get_moments()
+```
+
+## Get approximate probabilitie
+
+```
+cumulants = CumulantUtility(id_ = id_, n_moments = 4)
+
+probability_approx_2,probability_approx_3, probability_approx_4 = cumulants.prob_approx()
+```
+
+### For all samples
+
+```
+dict_probabilities = get_approx_probabilities(path) #if you already have submatrices for samples
+```
+`dict_probabilities` is a dictionary containing unique samples and probabilities for them. 
+
+
+If you have only samples and want to compute probabilities for them. 
+
+```
+dict_probabilities = compute_probabilities(samples)
+```

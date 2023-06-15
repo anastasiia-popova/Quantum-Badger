@@ -8,6 +8,10 @@ import shutil
 import subprocess
 old_settings = np.seterr(all='ignore') 
 
+from datetime import datetime
+
+
+
 def return_path(filename='demo.ipynb'):
     """Uses os to return the correct path of a directory.
     Default is a directory containing 'demo.ipynb' file. 
@@ -16,6 +20,31 @@ def return_path(filename='demo.ipynb'):
     directory_name = os.path.dirname(absolute_path).replace("\\" , "/" )
     #full_path = os.path.join(directory_name, filename)
     return directory_name #full_path
+
+def return_path_(filename='demo.ipynb'):
+    # Directory name is a time now
+    #now = datetime.now().strftime("%M_%H-%d_%m_%Y") 
+    
+    directory = datetime.now().strftime("%M_%H-%d_%m_%Y") 
+
+    # Parent directory path
+    parent_dir = os.path.join(return_path(filename), "data")
+
+    # Join path
+    path = os.path.join(parent_dir, directory)
+    
+    try:
+        os.makedirs(os.path.join(path, "input"))
+        os.makedirs(os.path.join(path, "output"))
+    
+    except:
+        print("error")
+        path = parent_dir
+    
+    return path
+    
+    
+
 
 
 # Methods
@@ -981,6 +1010,32 @@ def frobenius_distance(A, B):
         return ((((A-B).T.conj()@(A-B)).trace())**0.5).real
     else:
         raise ValueError(f"Input matrices must have the same shape.")
+        
+def convert_str_to_list(sample):
+    """
+    Maps sample from list to string in the next way: 
+    
+    Input: '101'
+    Output: [1,0,1]
+    """
+    
+    s = [int(element) for element in list(sample)]
+    
+    return s
+
+def convert_list_to_str(sample):
+    
+    """
+    Maps sample from list to string in the next way:
+    
+    Input: [1,0,1]
+    Output: '101'
+    """
+    
+    s = (','.join(map(str, sample)).replace(',',''))
+    
+    return s
+
     
 def export_samples(samples, path, file_name):
     
@@ -1518,6 +1573,51 @@ class MomentUtility():
         self.n_modes = len(self.matrix)
         self.n_sector_max = round(10*self.n_modes)
         self.n_sector_step = 2*np.pi/self.n_sector_max
+        
+        
+    def export_minors(self):
+        """
+        Computes minors for a sample and saves the results in the specified path.
+        In the specified directory it needs to have directories with names `input` 
+        and `output`. `input` contains files `samples_ids.dat` and `Submatrix_i.dat` 
+        (`i` is an integer index specified in  `samples_ids.dat`). 
+
+        Returns:
+            str: A message confirming the completion of minor computation for a sample. 
+        """
+        index = self.id_
+        path = self.path
+
+        files = (
+                [
+                    '/output/Minors0-1.dat',
+                    '/output/Minors2.dat', 
+                    '/output/Minors3.dat', 
+                    '/output/Minors4.dat',
+                    '/input/Submatrix.dat'
+                ])
+
+        
+        shutil.copy(path+f'/input/Submatrix_{index}.dat', path+'/input/Submatrix.dat')
+
+        cmd = "cpp/Minors.cpp"
+        subprocess.call(["g++", cmd])
+        subprocess.call("./a.out") 
+        #print("Finished:", cmd.split("/")[1], f"for sample #{index}")
+
+        shutil.copy(path+f'/output/Minors0-1.dat', path+f'/output/Minors0-1_{index}.dat')
+        shutil.copy(path+f'/output/Minors2.dat', path+f'/output/Minors2_{index}.dat')
+        shutil.copy(path+f'/output/Minors3.dat', path+f'/output/Minors3_{index}.dat')
+        shutil.copy(path+f'/output/Minors4.dat', path+f'/output/Minors4_{index}.dat')
+
+        for f in files:
+            if os.path.isfile(path + f):
+                os.remove(path + f)
+            else:
+                print("Error: %s file not found" % path + f)
+
+        return f"Minors for the sample #{index} are computed."
+
 
 
     def moment_formula(self, n, *args):
@@ -1828,7 +1928,7 @@ class CumulantUtility(MomentUtility):
 
         A_2 = np.zeros(Nu)
         Mu1_2 = np.zeros(Nu)
-        Mu2_2 = np.zeros(Nu)
+        Mu2_2 = np.zeros(Nu) # , dtype=np.longdouble
 
         for nu in range(Nu):
 
@@ -2072,3 +2172,43 @@ class CumulantUtility(MomentUtility):
     
 
 
+## Get approximate probabilities
+
+def get_approx_probabilities( path=return_path() ):
+
+    data_ids = np.genfromtxt(path + '/input/samples_ids.dat', dtype=str)
+
+    ids = [int(i) for i in data_ids[:,0]]
+    samples = data_ids[:,1]
+
+    dict_probabilities = {}
+
+    for i in ids:
+        sample = samples[i]
+        
+        moments = MomentUtility(id_ = i, path=path)
+        moments.export_minors()
+        moments.export_moments()
+        
+        cumulants = CumulantUtility(id_ = i, path=path)
+        probability_approx_2, probability_approx_3, probability_approx_4 = cumulants.prob_approx()
+
+        dict_probabilities[sample] = (
+            [
+                probability_approx_2, 
+                probability_approx_3, 
+                probability_approx_4
+            ]
+        )
+        
+    return  dict_probabilities
+
+def compute_probabilities(samples, path=return_path() ):
+    
+    M, m, n, r, n_cutoff, n_mc, batch_size = import_input(path, "/GBS_matrix.dat")
+    
+    submatriсes_export(M, samples, path)
+    
+    dict_probabilities = get_approx_probabilities(path = path)
+        
+    return dict_probabilities
