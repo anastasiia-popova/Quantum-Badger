@@ -3,6 +3,7 @@ import numpy as np
 import random
 from math import * 
 import os
+import pandas as pd
 
 import shutil
 import subprocess
@@ -21,12 +22,11 @@ def return_path(filename='demo.ipynb'):
     #full_path = os.path.join(directory_name, filename)
     return directory_name #full_path
 
-def return_path_(filename='demo.ipynb'):
+def create_path(filename='demo.ipynb'):
     # Directory name is a time now
     #now = datetime.now().strftime("%M_%H-%d_%m_%Y") 
     
-    directory = datetime.now().strftime("%M_%H-%d_%m_%Y") 
-
+    directory = datetime.now().strftime("%M_%H-%d_%m_%Y")
     # Parent directory path
     parent_dir = os.path.join(return_path(filename), "data")
 
@@ -1504,6 +1504,57 @@ def Z_i(sample, M, nu=0):
     
     return z
 
+def prob_sectors_exact(M, sample):
+    
+    """
+    Calculates the exact probabilities over sectors for a given sample 
+    and Gaussian matrix.
+
+    Args:
+        M (numpy.ndarray): The Gaussian matrix for computation.
+        sample (list, optional): The sample to calculate the probabilities for. Defaults to [1]*len(M).
+    
+    Returns:
+        numpy.ndarray: The exact probabilities over sectors for the given sample and Gaussian matrix.
+
+        
+    """
+ 
+    
+    clicked_detectors = convert_01_0123(sample)    
+    M_sub = red_mat(M, clicked_detectors)
+    
+    nu_max=10*len(M_sub)
+    dnu = 2 * np.pi / nu_max
+    m = len(M_sub)
+
+    stat = np.zeros((m + 1, nu_max), dtype=np.complex128)
+    sectors = np.zeros((m + 1, nu_max), dtype=np.float64)
+                    
+    for i in range(m+1):
+        detect_event = [1 for j in range(i)] + [0]*(m-i) 
+        permutations = list(permut(detect_event))
+
+        if i == 0:
+            for nu in range(nu_max):
+                stat[i,nu] += 1
+
+        else:
+            for nu in range(nu_max):
+                for s in permutations:
+                    stat[i,nu] += Z_i(s, M_sub, nu=nu*dnu) 
+                    
+    for k in range(m):
+        for h in range(k + 1, m + 1):
+            for nu in range(nu_max):
+                stat[h, nu] -= stat[k, nu] * number_of_comb(m - k, m - h)
+
+    for n in range(m + 1):
+        for j in range(nu_max):
+            for k in range(nu_max):
+                sectors[n, j] += (stat[n, k]*np.exp(-1j*j*k*dnu)/nu_max).real
+                
+    return sectors/Z(M)
 
 def compute_minors(path=return_path):
     """
@@ -1590,31 +1641,33 @@ class MomentUtility():
 
         files = (
                 [
-                    '/output/Minors0-1.dat',
-                    '/output/Minors2.dat', 
-                    '/output/Minors3.dat', 
-                    '/output/Minors4.dat',
-                    '/input/Submatrix.dat'
+                    '/Minors0-1.dat',
+                    '/Minors2.dat', 
+                    '/Minors3.dat', 
+                    '/Minors4.dat',
+                    '/Submatrix.dat'
                 ])
 
+        path_level_down = os.path.split(path)[0]
+        shutil.copy(path+f'/input/Submatrix_{index}.dat', path_level_down + files[4])
         
-        shutil.copy(path+f'/input/Submatrix_{index}.dat', path+'/input/Submatrix.dat')
-
         cmd = "cpp/Minors.cpp"
         subprocess.call(["g++", cmd])
         subprocess.call("./a.out") 
         #print("Finished:", cmd.split("/")[1], f"for sample #{index}")
+        
+        #print(path_level_down+files[0], path+f'/output/Minors0-1_{index}.dat' )
 
-        shutil.copy(path+f'/output/Minors0-1.dat', path+f'/output/Minors0-1_{index}.dat')
-        shutil.copy(path+f'/output/Minors2.dat', path+f'/output/Minors2_{index}.dat')
-        shutil.copy(path+f'/output/Minors3.dat', path+f'/output/Minors3_{index}.dat')
-        shutil.copy(path+f'/output/Minors4.dat', path+f'/output/Minors4_{index}.dat')
+        shutil.copy(path_level_down+files[0], path+f'/output/Minors0-1_{index}.dat')
+        shutil.copy(path_level_down+files[1], path+f'/output/Minors2_{index}.dat')
+        shutil.copy(path_level_down+files[2], path+f'/output/Minors3_{index}.dat')
+        shutil.copy(path_level_down+files[3], path+f'/output/Minors4_{index}.dat')
 
         for f in files:
-            if os.path.isfile(path + f):
-                os.remove(path + f)
+            if os.path.isfile(path_level_down + f):
+                os.remove(path_level_down + f)
             else:
-                print("Error: %s file not found" % path + f)
+                print("Error: %s file not found" % path_level_down + f)
 
         return f"Minors for the sample #{index} are computed."
 
@@ -2182,7 +2235,7 @@ def get_approx_probabilities( path=return_path() ):
     samples = data_ids[:,1]
 
     dict_probabilities = {}
-
+    
     for i in ids:
         sample = samples[i]
         
@@ -2212,3 +2265,129 @@ def compute_probabilities(samples, path=return_path() ):
     dict_probabilities = get_approx_probabilities(path = path)
         
     return dict_probabilities
+
+## Generate DataFrame with results
+
+def get_basis_df(M):
+    
+    m = len(M)
+    
+    # Obtain all possible samples for theshold detection
+    all_permutations = threshold_basis_set(m)
+    
+    # Calculate probabilities for all possible samples 
+
+    probabilities_exact = []
+
+    for s in all_permutations:
+        probabilities_exact.append(prob_exact(s, M))
+        
+    basis_dictionary = {
+         convert_list_to_str(all_permutations[i]): [sum(all_permutations[i]), probabilities_exact[i]] 
+        for i in range(len(all_permutations))
+    }
+    
+    df_basis = (
+    pd.DataFrame
+    .from_dict(
+        basis_dictionary, 
+        orient='index',
+        columns=["n_clicks","probability_exact"])
+    )
+
+    df_basis.index.name = "sample"
+    
+    # Sum all probabilities to obtain 1 
+    print("sum prob:", "{:.3e}".format(sum(probabilities_exact)))
+    
+    return df_basis
+
+
+def count_samples(samples, samples_dictionary):
+    # we can't use np.unique() because it returns SORTED list
+    batch_size = len(samples)
+    n_unique = len(samples_dictionary.keys())
+    n_counts = [0]*n_unique
+
+    unique_samples = list(samples_dictionary.keys())
+
+    for i in range(batch_size):
+        s = convert_list_to_str(samples[i])
+        #(','.join(map(str, samples[i])).replace(',',''))
+        if s in unique_samples:
+            index =  unique_samples.index(s)
+            n_counts[index]+=1
+        else:
+            raise 'Incomplete list of unique samples in the dictionary'
+    return n_counts
+
+def get_result_df(samples, M, dict_prob, exact_prob = True):
+    
+    if exact_prob == True:
+        samples_dictionary = {
+            convert_list_to_str(s): [sum(s),  prob_exact(s, M) ] for s in samples
+        }
+
+        df_1 = (
+            pd.DataFrame
+            .from_dict(
+                samples_dictionary, 
+                orient='index', 
+                columns=["n_clicks","probability_exact"]
+            )
+        )
+
+        #df_1.index.name = "sample"
+
+        df_1["n_counts"] = count_samples(samples, samples_dictionary)
+
+        df_2 = pd.DataFrame.from_dict(
+            dict_prob, 
+            orient='index', 
+            columns=["probability_approx_2", "probability_approx_3", "probability_approx_4"]
+        )
+
+        #df_2.index.name = "sample"
+
+        df = pd.merge(df_1, df_2, on=df_1.index).set_index("key_0")
+        df.index.name = "sample"
+        
+        return df
+    
+    else:
+        
+        samples_dictionary = {
+            convert_list_to_str(s): sum(s) for s in samples
+        }
+        
+        df_1 = (
+            pd.DataFrame
+            .from_dict(
+                samples_dictionary, 
+                orient='index', 
+                columns=["n_clicks"]
+            )
+        )
+        
+        df_1["n_counts"] = count_samples(samples, samples_dictionary)
+
+        df_2 = pd.DataFrame.from_dict(
+            dict_prob, 
+            orient='index', 
+            columns=["probability_approx_2", "probability_approx_3", "probability_approx_4"]
+        )
+
+        #df_2.index.name = "sample"
+
+        df = pd.merge(df_1, df_2, on=df_1.index).set_index("key_0")
+        df.index.name = "sample"
+        
+        return df
+        
+def get_dict_format(df):
+    dict_format = {}
+    for key in df.keys():
+        if "probability" in key: 
+            dict_format[key] = "{:.3e}"
+            
+    return dict_format

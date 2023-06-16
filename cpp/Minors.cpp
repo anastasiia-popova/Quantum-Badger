@@ -1,9 +1,9 @@
 #include "headers.h"
 #include "matrix.h"
-const char* in_name="input/Submatrix.dat";
+const char* in_name="data/Submatrix.dat";
 bool enable_checks=false;
 
-int N=sqrt(file_size(in_name)/2), Nnu=N*10; ifstream a_str(in_name); ofstream ou1("output/Minors0-1.dat"), ou2 ("output/Minors2.dat"), ou3 ("output/Minors3.dat"), ou4 ("output/Minors4.dat");
+int N=sqrt(file_size(in_name)/2), Nnu=N*10; ifstream a_str(in_name); ofstream ou1("data/Minors0-1.dat"), ou2 ("data/Minors2.dat"), ou3 ("data/Minors3.dat"), ou4 ("data/Minors4.dat");
 
 complex ** M=new_complex2(N,N), ** MM=new_complex2(N,N), ** U=new_complex2(N,N), ** MU=new_complex2(N,N), ** MMU=new_complex2(N,N);
 long double * lambda=new long double [N];
