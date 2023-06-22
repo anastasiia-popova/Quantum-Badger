@@ -344,7 +344,7 @@ def get_random_interferometer(m, n_bs, path=None):
         with open(path + "/parameters_of_interferometer.dat", "w") as ouf:
 
             ouf.write(
-                f"# N_modes = {m}\tN_bs = {n_bs}\tN_ps = {n_ps}\n[n1, n2]\tphi\tpsi\teta\n"
+                f"m\tn_BS\n{m}\t{n_bs}\n[n1, n2]\tphi\tpsi\teta\n"
             )
 
             for z in range(n_bs):
@@ -459,7 +459,7 @@ def export_input(path, r_s, phi_s, A, ind, phi, psi, eta, n_bs, U, M, n, n_mc=10
     with open(path + "/parameters_of_interferometer.dat", "w") as ouf:
 
         ouf.write(
-            f"# N_modes = {m}\tN_bs = {n_bs}\tN_ps = {n_ps}\n[n1, n2]\tphi\tpsi\teta\n"
+            f"m\tn_BS\n{m}\t{n_bs}\n[n1, n2]\tphi\tpsi\teta\n"
         )
         
         for z in range(n_bs):
@@ -651,18 +651,31 @@ def import_parameters_interferometer(path, file_name):
                             phase shifters in the interferometer.
         - eta (np.ndarray): An array of shape (n_bs,) containing the values of the
                             beamsplitters in the interferometer.
+        - n_bs (int): Number of beamsplitters.
+        - m (int): Number of modes. 
     """
-
-    data = np.genfromtxt(path + '/' + file_name, skip_header=2)
-    ind_1 = data[:, 0].astype(int)
-    ind_2 = data[:, 1].astype(int)
+   
+    data = np.genfromtxt(path + file_name, skip_header=2)
+    ind_1 = data[1:, 0].astype(int)
+    ind_2 = data[1:, 1].astype(int)
     ind = np.stack((ind_1, ind_2), axis=-1)
-    phi = data[:, 2]
-    psi = data[:, 3]
-    eta = data[:, 4]
-
-    return ind, phi, psi, eta
+    phi = data[1:, 2]
+    psi = data[1:, 3]
+    eta = data[1:, 4]
     
+    data_header = np.genfromtxt(path + file_name, skip_header=1, skip_footer = len(data+1))
+    
+    m, n_bs = int(data_header[0]), int(data_header[1]) 
+    
+    return ind, phi, psi, eta, n_bs, m 
+    
+def import_initial_state(path, file_name):
+    
+    data = np.genfromtxt(path + file_name, skip_header=1)
+    r_lst = list(data[:,1])
+    phi_lst = list(data[:,2])
+    
+    return r_lst, phi_lst
     
 def set_device_parameters(r, A, U, path=None):
     
@@ -2256,6 +2269,33 @@ def get_approx_probabilities( path=return_path() ):
         
     return  dict_probabilities
 
+def import_approx_probabilities( path=return_path() ):
+
+    data_ids = np.genfromtxt(path + '/input/samples_ids.dat', dtype=str)
+
+    ids = [int(i) for i in data_ids[:,0]]
+    samples = data_ids[:,1]
+    
+    dict_probabilities = {}
+    
+    for i in ids:
+        sample = samples[i]
+        
+        data_result = np.genfromtxt(path + f'/output/Result_{i}.dat', skip_header=1)
+        probability_approx_2 =  data_result[3]
+        probability_approx_3 = data_result[4]
+        probability_approx_4 = data_result[5]
+                
+        dict_probabilities[sample] = (
+            [
+                probability_approx_2, 
+                probability_approx_3, 
+                probability_approx_4
+            ]
+        )
+        
+    return  dict_probabilities
+
 def compute_probabilities(samples, path=return_path() ):
     
     M, m, n, r, n_cutoff, n_mc, batch_size = import_input(path, "/GBS_matrix.dat")
@@ -2298,7 +2338,7 @@ def get_basis_df(M):
     df_basis.index.name = "sample"
     
     # Sum all probabilities to obtain 1 
-    print("sum prob:", "{:.3e}".format(sum(probabilities_exact)))
+    print("Sum of Probabilities:", "{:.3e}".format(sum(probabilities_exact)))
     
     return df_basis
 
@@ -2391,3 +2431,94 @@ def get_dict_format(df):
             dict_format[key] = "{:.3e}"
             
     return dict_format
+
+### Tests 
+def relative_weighted_error(p, q):
+    
+    rwe = np.mean([abs(1 - p[i]/q[i]) for i in range(len(p))])
+    
+    return rwe
+
+def fidelity(p, q):
+
+    f = sum([(p[i]*q[i])**0.5 for i in range(len(p))])**2
+
+    return f
+
+def total_variation_distance(p, q):
+
+    tvd = max([abs(p[i]-q[i]) for i in range(len(p))])
+        
+    return tvd
+
+def cross_entropy(p, q):
+
+    xe =  -sum([p[i]*np.log2(q[i]) for i in range(len(p))])
+
+    return xe
+
+
+def get_tests_df(df): 
+    
+    m = len(df.index[0]) 
+    
+    p_ex = df["probability_exact"].to_list()
+    p_app_2 =  df["probability_approx_2"].to_list()
+    p_app_3 =  df["probability_approx_3"].to_list()
+    p_app_4 =  df["probability_approx_4"].to_list()
+    
+    p_unif = [1/2**m]*len(p_ex)
+    
+    tests_dictionary = (
+        {
+
+            "relative_weighted_error": 
+            [relative_weighted_error(p_ex,p_ex), 
+             relative_weighted_error(p_ex,p_app_2),
+             relative_weighted_error(p_ex,p_app_3),
+             relative_weighted_error(p_ex,p_app_4),
+             relative_weighted_error(p_ex,p_unif)
+             
+            ],
+            "total_variation_distance" :  
+            [total_variation_distance(p_ex,p_ex), 
+             total_variation_distance(p_ex,p_app_2),
+             total_variation_distance(p_ex,p_app_3),
+             total_variation_distance(p_ex,p_app_4),
+             total_variation_distance(p_ex,p_unif) 
+            ],
+            "fidelity": 
+            [fidelity(p_ex,p_ex), 
+             fidelity(p_ex,p_app_2),
+             fidelity(p_ex,p_app_3), 
+             fidelity(p_ex,p_app_4), 
+             fidelity(p_ex,p_unif) 
+            ] ,
+            "cross_entropy" :
+            [cross_entropy(p_ex,p_ex),
+             cross_entropy(p_ex,p_app_2),
+             cross_entropy(p_ex,p_app_3),
+             cross_entropy(p_ex,p_app_4),
+             cross_entropy(p_ex,p_unif)
+            ]
+
+        }
+    )
+
+
+    df_tests = (pd.DataFrame
+                .from_dict(
+                    tests_dictionary, 
+                    orient='index',
+                    columns=
+                    ["(p_exact, p_exact)", 
+                     "(p_exact, p_appr_2)",
+                     "(p_exact, p_appr_3)",
+                     "(p_exact, p_appr_4)",
+                     "(p_exact, p_uniform)"
+                    ])
+                )
+
+    df_tests.index.name = "test"
+
+    return df_tests
