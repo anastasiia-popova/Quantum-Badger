@@ -1972,17 +1972,23 @@ class CumulantUtility(MomentUtility):
 
         if len(c) == 3:    
 
-            res = c[0]*np.exp(-(x - c[1])**2/(2*c[2])) 
+            res = c[0]*np.exp(-(x - c[1])**2/(2*c[2])**2) 
 
         elif len(c) == 4:
 
-            res = c[0]*np.exp(-(x - c[1])**2/(2*c[2])) * np.exp(+ c[3]*(x - c[1])**3/(6*c[2]**3)) 
+            res = c[0]*np.exp(-(x - c[1])**2/(2*c[2])**2) * np.exp(+ c[3]*(x - c[1])**3/(6*c[2]**3)) 
 
         elif len(c) == 5:
 
-            res = c[0]*np.exp(-(x - c[1])**2/(2*c[2])) * np.exp(+ c[3]*(x - c[1])**3/(6*c[2]**3)) * np.exp(+ c[4]*(x - c[1])**4/(8*c[2]**4))
+            res = c[0]*np.exp(-(x - c[1])**2/(2*c[2])**2) * np.exp(+ c[3]*(x - c[1])**3/(6*c[2]**3)) * np.exp(+ c[4]*(x - c[1])**4/(8*c[2]**4))
 
         return res 
+    
+    def weighted_error(self, m, m_, coeff):
+        
+        err = coeff*(m - m_) #0.1*coeff * (m - m_)/m #
+        
+        return err
 
     def get_cumulants(self, m0, m1, m2, m3, m4):
     
@@ -2010,7 +2016,7 @@ class CumulantUtility(MomentUtility):
                 s3 = 0
                 s4 = 0
 
-                for j in range(n_cut):
+                for j in np.arange(n_cut):
 
                     s0 +=  self.gauss_fun(j, A_2[nu], Mu1_2[nu], Mu2_2[nu])
                     s1 +=  self.gauss_fun(j, A_2[nu], Mu1_2[nu], Mu2_2[nu])* j
@@ -2021,10 +2027,12 @@ class CumulantUtility(MomentUtility):
                     m0_ = s0 
                     m1_ = s1/s0 
                     m2_ = s2/s0 - m1_**2
+                    
+                   
 
-                    A_2[nu] += 0.1*(m0[nu]  - m0_ )
-                    Mu1_2[nu] += 0.1*(m1[nu] - m1_) 
-                    Mu2_2[nu] += 0.1*(m2[nu] - m2_)  
+                    A_2[nu] += self.weighted_error(m0[nu], m0_, 0.1) #0.1*(m0[nu]  - m0_ )
+                    Mu1_2[nu] += self.weighted_error(m1[nu], m1_, 0.1) # 0.1*(m1[nu] - m1_)
+                    Mu2_2[nu] += self.weighted_error(m2[nu], m2_, 0.1) #0.1*(m2[nu] - m2_)  
 
                 else:
 
@@ -2074,10 +2082,10 @@ class CumulantUtility(MomentUtility):
                     m2_ = s2/s0 - m1_**2
                     m3_ = s3/s0 - 3*m2_*m1_ - m1_**3
 
-                    A_3[nu] += 0.05*(m0[nu] - m0_)
-                    Mu1_3[nu] += 0.1*(m1[nu] - m1_ )
-                    Mu2_3[nu] += 0.1*(m2[nu] - m2_)  
-                    Mu3_3[nu] += 0.05*(m3[nu] - m3_) 
+                    A_3[nu] += self.weighted_error(m0[nu], m0_, 0.05) #0.05*(m0[nu] - m0_)
+                    Mu1_3[nu] += self.weighted_error(m1[nu], m1_, 0.1) #0.1*(m1[nu] - m1_ )
+                    Mu2_3[nu] += self.weighted_error(m2[nu], m2_, 0.1) #0.1*(m2[nu] - m2_)  
+                    Mu3_3[nu] += self.weighted_error(m3[nu], m3_, 0.05) #0.05*(m3[nu] - m3_) 
 
                 else:
                     A_3[nu] += 0
@@ -2136,11 +2144,11 @@ class CumulantUtility(MomentUtility):
                     step_ini_3 =  0.05
                     step_ini_4 =  0.008
 
-                    A_4[nu] +=  step_ini_0*(m0[nu] - m0_) 
-                    Mu1_4[nu] +=  step_ini_1*(m1[nu] - m1_)
-                    Mu2_4[nu] +=  step_ini_2*(m2[nu] - m2_) 
-                    Mu3_4[nu] +=  step_ini_3*(m3[nu] - m3_) 
-                    Mu4_4[nu] +=  step_ini_4*(m4[nu] - m4_)
+                    A_4[nu] +=  self.weighted_error(m0[nu], m0_, step_ini_0) #step_ini_0*(m0[nu] - m0_) 
+                    Mu1_4[nu] +=  self.weighted_error(m1[nu], m1_, step_ini_1) #step_ini_1*(m1[nu] - m1_)
+                    Mu2_4[nu] +=  self.weighted_error(m2[nu], m2_, step_ini_2) #step_ini_2*(m2[nu] - m2_) 
+                    Mu3_4[nu] +=  self.weighted_error(m3[nu], m3_, step_ini_3) #step_ini_3*(m3[nu] - m3_) 
+                    Mu4_4[nu] +=  self.weighted_error(m4[nu], m4_, step_ini_4) #step_ini_4*(m4[nu] - m4_)
 
                 else:
                     A_4[nu] += 0
