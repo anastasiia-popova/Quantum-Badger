@@ -5,24 +5,29 @@ from math import *
 import os
 import pandas as pd
 
+import scipy.optimize as opt
+
 import shutil
 import subprocess
 old_settings = np.seterr(all='ignore') 
 
 from datetime import datetime
 
+# Compiling c++ file
+cmd = "cpp/Minors.cpp"
+subprocess.call(["g++", cmd])
 
 
-def return_path(filename='demo.ipynb'):
+def return_path(filename='tutorial.ipynb'):
     """Uses os to return the correct path of a directory.
-    Default is a directory containing 'demo.ipynb' file. 
+    Default is a directory containing 'tutorial.ipynb' file. 
     """
     absolute_path = os.path.abspath(filename)
     directory_name = os.path.dirname(absolute_path).replace("\\" , "/" )
     #full_path = os.path.join(directory_name, filename)
     return directory_name #full_path
 
-def create_path(filename='demo.ipynb'):
+def create_path(filename='tutorial.ipynb'):
     # Directory name is a time now
     #now = datetime.now().strftime("%M_%H-%d_%m_%Y") 
     
@@ -433,9 +438,6 @@ def export_input(path, r_s, phi_s, A, ind, phi, psi, eta, n_bs, U, M, n, n_mc=10
         U (ndarray): Array of size m x m containing the unitary matrix of the interferometer.
         M (ndarray): Array of size m x m containing the multi-mode matrix of the GBS scheme.
         n (int): Number of nonzero elements in r_s.
-        n_mc (int, optional): Number of Monte Carlo samples for the emulation. Default is 10^5.
-        n_cutoff (float, optional): Photon number cutoff. Default is the result of the function average_photon_number(r_s).
-        batch_size (int, optional): Batch size for writing data to file. Default is 10^3.
         path (str): Path where the output files will be saved.
 
     Returns:
@@ -445,7 +447,7 @@ def export_input(path, r_s, phi_s, A, ind, phi, psi, eta, n_bs, U, M, n, n_mc=10
     m = len(M)
     n_ps = int(n_bs*2)
     n = np.count_nonzero(np.array(r_s))
-    n_cutoff=average_photon_number(r_s)
+    #n_cutoff=average_photon_number(r_s)
 
     with open(path + r"/initial_state.dat", "w") as ouf:
         
@@ -466,12 +468,15 @@ def export_input(path, r_s, phi_s, A, ind, phi, psi, eta, n_bs, U, M, n, n_mc=10
             ouf.write(
                 f"{ind[z][0]}\t{ind[z][1]}\t{phi[z]}\t{psi[z]}\t{eta[z]}\n"
             )
+            
                 
     with open(path + "/GBS_matrix.dat", "w") as ouf:
         
         ouf.write(
-            f"{m}\t{n}\t{r_s[0]}\t{n_cutoff}\t{n_mc}\t{batch_size}\n"
+            f"{m}\t{n}\t{r_s[0]}\n"
         )
+        
+        # f"{m}\t{n}\t{r_s[0]}\t{n_cutoff}\t{n_mc}\t{batch_size}\n"
         
         for k in range(m):
             for j in range(m):
@@ -520,9 +525,6 @@ def import_input(path, file_name):
             - m (int): Number of modes in the Gaussian multi-mode matrix.
             - n (int): Number of input photons for the GBS scheme.
             - r (float): Parameter r for the GBS scheme.
-            - n_cutoff (int): Cutoff parameter for the GBS scheme.
-            - n_mc (int): Number of Monte Carlo samples for the GBS scheme.
-            - batch_size (int): Batch size for the GBS scheme.
             
     Raises:
         FileNotFoundError: If the specified input file is not found at the given path.
@@ -535,8 +537,8 @@ def import_input(path, file_name):
     
     data_ = np.genfromtxt(path + file_name, skip_footer = m )
     
-    n, r, n_cutoff, n_mc, batch_size = int(data_[1]), data_[2], int(data_[3]), int(data_[4]), int(data_[5])
-
+    n, r = int(data_[1]), data_[2] # int(data_[3]), int(data_[4]), int(data_[5])
+    #n, r, n_cutoff, n_mc, batch_size
     M = np.zeros((m, m), dtype=np.complex128)
 
     real_part = []
@@ -553,9 +555,11 @@ def import_input(path, file_name):
     for i in range(m**2):
         M[i // m, i % m] = real_part[i] + 1j * imaginary_part[i]
 
-    print("Data were imported from " + path + file_name)
+    #print("Data were imported from " + path + file_name)
+    
+    #M, m, n, r, n_cutoff, n_mc, batch_size 
 
-    return M, m, n, r, n_cutoff, n_mc, batch_size 
+    return M, m, n, r
 
 def import_interferometer(path, file_name):
 
@@ -1068,6 +1072,7 @@ def export_samples(samples, path, file_name):
             
     return "Data were exported to " + path + file_name
 
+
 def import_samples(path, file_name):
     
     """Imports a nested list of samples from a text file.
@@ -1080,20 +1085,21 @@ def import_samples(path, file_name):
             A nested list of samples imported from the text file.
         """ 
     
-    samples_data = np.genfromtxt(path + file_name, dtype=str)
+    samples_data = np.loadtxt(path + "/samples.dat", dtype=str,ndmin=1)
+    
     samples = []
 
     alphabet = 'abcdefghijklmnopqrstuvwxyz'
-    dir_alphabet = { alphabet[i]: 10+i for i in range(len(alphabet))}
+    dir_alphabet = {alphabet[i]: 10 + i for i in range(len(alphabet))}
 
+    
     for s in samples_data:
         sample = []
         for i in s:
-            if i not in alphabet:
+            if i.isdigit():  # Check if the character is a digit
                 sample.append(int(i))
-            else:
-                sample.append(dir_alphabet[str(i)])
-
+            elif i.isalpha():  # Check if the character is an alphabet letter
+                sample.append(dir_alphabet[i])  # Changed str(i) to i
         samples.append(sample)
             
     return samples
@@ -1603,10 +1609,10 @@ def compute_minors(path=return_path):
     for i in ids:
         shutil.copy(path+f'/input/Submatrix_{i}.dat', path+'/input/Submatrix.dat')
 
-        cmd = "cpp/Minors.cpp"
-        subprocess.call(["g++", cmd])
+        # cmd = "cpp/Minors.cpp"
+        # subprocess.call(["g++", cmd])
         subprocess.call("./a.out") 
-        print("Finished:", cmd.split("/")[1], f"for sample #{i}")
+        #print("Finished:", cmd.split("/")[1], f"for sample #{i}")
 
         shutil.copy(path+f'/output/Minors0-1.dat', path+f'/output/Minors0-1_{i}.dat')
         shutil.copy(path+f'/output/Minors2.dat', path+f'/output/Minors2_{i}.dat')
@@ -1628,7 +1634,7 @@ class MomentUtility():
         self,
         id_,
         n_moments=4,
-        path=return_path(filename='demo.ipynb'),
+        path=return_path(filename='tutorial.ipynb'),
     ): 
         self.id_ = id_
         self.path = path
@@ -1665,7 +1671,7 @@ class MomentUtility():
         shutil.copy(path+f'/input/Submatrix_{index}.dat', path_level_down + files[4])
         
         cmd = "cpp/Minors.cpp"
-        subprocess.call(["g++", cmd])
+        #subprocess.call(["g++", cmd])
         subprocess.call("./a.out") 
         #print("Finished:", cmd.split("/")[1], f"for sample #{index}")
         
@@ -1909,7 +1915,7 @@ class MomentUtility():
         return f"Moments were exported to {self.path}/output/Moments_{self.id_}.dat"
     
     
-class CumulantUtility(MomentUtility):
+class CumulantUtility_old(MomentUtility):
     
     
     def import_moments(self):
@@ -2244,18 +2250,408 @@ class CumulantUtility(MomentUtility):
 
         return probability_approx_2, probability_approx_3, probability_approx_4
     
+class CumulantUtility(MomentUtility):
+    
+    
+    def import_moments(self):
+        
+        m = self.n_modes 
+        Nu = self.n_sector_max
+        dnu = self.n_sector_step
+        
 
+        data_minors = np.genfromtxt(self.path + f'/output/Minors0-1_{self.id_}.dat')
+
+        Z_v_0 = np.zeros((Nu),dtype=np.complex128)
+
+        Z_v_1 = np.zeros((m, Nu),dtype=np.complex128)
+
+        for j in range(Nu):
+             Z_v_0[j] =  data_minors[j,1] + 1j*data_minors[j,2]
+
+        for j in range(Nu):
+            for n in range(0,2*m,2):
+                Z_v_1[n//2,j] =  data_minors[j,int(3+n)] + 1j*data_minors[j,int(4+n)] 
+
+
+        Z_v_0f =  np.zeros((Nu), dtype = np.complex128)
+        Z_v_1f = np.zeros((m, Nu), dtype = np.complex128)
+
+        Z_v_0f = np.fft.fft(Z_v_0)/Nu
+        Z_v_1f = np.fft.fft(Z_v_1)/Nu
+
+        data_moments = np.genfromtxt(self.path+f'/output/Moments_{self.id_}.dat')
+
+        m0 = (Z_v_0f[:]/Z_v_0[0]).real #normalization
+        m1 = data_moments[:, 0]
+        m2 = data_moments[:, 1]
+        m3 = data_moments[:, 2]
+        m4 = data_moments[:, 3]
+        
+        return m0, m1, m2, m3, m4
+        
+    def guess_fun(self, x, *args):
+
+        # if cutoff == 'None':
+        #     prob_notcut = 1.0
+        # else:
+        #     prob_notcut = sts.norm.cdf(cutoff, loc=mu, scale=sigma)
+
+        for m in args:
+            m = args
+
+        if len(m) == 3:
+
+            pdf_vals = m[0] *(1/(m[2] * np.sqrt(2 * np.pi)))*(
+                         np.exp( - (x - m[1])**2 / (2 * m[2]**2)) 
+                      ) 
+
+        if len(m) == 4: 
+
+            pdf_vals = m[0] *(1/(m[2] * np.sqrt(2 * np.pi)))*(
+                         np.exp( - (x - m[1])**2 / (2 * m[2]**2)) 
+                       * np.exp(+ m[3]*(x - m[1])**3/(3*m[2]**3))
+                      ) 
+
+        if len(m) == 5: 
+
+            pdf_vals = m[0] *(1/(m[2] * np.sqrt(2 * np.pi)))*(
+                         np.exp( - (x - m[1])**2 / (2 * m[2]**2)) 
+                       * np.exp(+ m[3]*(x - m[1])**3/(3*m[2]**3))
+                       * np.exp(+ m[4]*(x - m[1])**4/(8*m[2]**4))
+
+                    ) 
+
+                       #/prob_notcut)
+
+        return pdf_vals
+ 
+
+    def get_cumulants(self):
+    
+        m = self.n_modes
+        Nu = self.n_sector_max
+        cutoff = int(m*2)
+        moments_data = np.array(self.import_moments())
+
+        # The 2nd order approximation 
+        A_2 = np.zeros(Nu)
+        Mu1_2 = np.zeros(Nu)
+        Mu2_2 = np.zeros(Nu) 
+
+        for nu in range(Nu):
+            
+            params_init = np.array( moments_data[:3, nu])
+            #print(params_init)
+            A_2[nu], Mu1_2[nu],  Mu2_2[nu] = self.GMM(params_init, cutoff, nu)
+
+        # The 3rd order approximation 
+        A_3 = np.zeros(Nu)
+        Mu1_3 = np.zeros(Nu)
+        Mu2_3 = np.zeros(Nu)
+        Mu3_3 = np.zeros(Nu)
+
+        for nu in range(Nu):
+            
+            params_init =  moments_data[:4, nu]
+            A_3[nu], Mu1_3[nu],  Mu2_3[nu], Mu3_3[nu] = self.GMM(params_init, cutoff, nu)
+
+
+        # The 4th order approximation 
+        A_4 = np.zeros(Nu)
+        Mu1_4 = np.zeros(Nu)
+        Mu2_4 = np.zeros(Nu)
+        Mu3_4 = np.zeros(Nu)
+        Mu4_4 = np.zeros(Nu)
+
+        for nu in range(Nu):
+            
+            params_init =  moments_data[:, nu]
+            A_4[nu], Mu1_4[nu],  Mu2_4[nu], Mu3_4[nu], Mu4_4[nu] = self.GMM(params_init, cutoff, nu) 
+                    
+        return A_2, Mu1_2, Mu2_2,  A_3, Mu1_3, Mu2_3, Mu3_3, A_4, Mu1_4, Mu2_4, Mu3_4, Mu4_4
+
+    def model_moments(self, cutoff, *args):
+        
+        for m in args:
+            m = args
+            
+        
+        if len(m) == 3:
+
+            s0 = 0
+            s1 = 0
+            s2 = 0
+
+
+            for x in np.arange(cutoff):
+
+                s0 +=  self.guess_fun(x,  m[0], m[1], m[2])
+                s1 +=  self.guess_fun(x,  m[0], m[1], m[2]) * x
+                s2 +=  self.guess_fun(x,  m[0], m[1], m[2]) * x**2
+
+            m0_model = s0
+            m1_model = s1/s0
+            m2_model = s2/s0 - m1_model**2
+
+            model_moms = m0_model, m1_model, m2_model
+
+        elif len(m) == 4:
+
+            s0 = 0
+            s1 = 0
+            s2 = 0
+            s3 = 0
+
+
+            for x in np.arange(1,cutoff):
+
+                s0 +=  self.guess_fun(x, m[0], m[1], m[2], m[3])
+                s1 +=  self.guess_fun(x, m[0], m[1], m[2], m[3]) * x
+                s2 +=  self.guess_fun(x, m[0], m[1], m[2], m[3]) * x**2
+                s3 +=  self.guess_fun(x, m[0], m[1], m[2], m[3]) * x**3
+
+            m0_model = s0
+            m1_model = s1/s0
+            m2_model = s2/s0 - m1_model**2
+            m3_model = s3/s0 - 3*m2_model*m1_model - m1_model**3
+
+            model_moms = m0_model, m1_model, m2_model, m3_model
+
+        elif len(m) == 5:
+
+            s0 = 0
+            s1 = 0
+            s2 = 0
+            s3 = 0
+            s4 = 0
+
+
+            for x in np.arange(cutoff):
+
+                s0 +=  self.guess_fun(x, m[0], m[1], m[2], m[3], m[4])
+                s1 +=  self.guess_fun(x, m[0], m[1], m[2], m[3], m[4]) * x
+                s2 +=  self.guess_fun(x, m[0], m[1], m[2], m[3], m[4]) * x**2
+                s3 +=  self.guess_fun(x, m[0], m[1], m[2], m[3], m[4]) * x**3
+                s4 +=  self.guess_fun(x, m[0], m[1], m[2], m[3], m[4]) * x**4
+
+            m0_model = s0
+            m1_model = s1/s0
+            m2_model = s2/s0 - m1_model**2
+            m3_model = s3/s0 - 3*m2_model*m1_model - m1_model**3
+            m4_model = s4/s0 - 4*m3_model*m1_model - 3*m2_model**2 - 6*m2_model*m1_model**2 - m1_model**4
+
+            model_moms = m0_model, m1_model, m2_model, m3_model, m4_model
+            
+        else:
+            print('The number of moments is unexpected; it must be equal to 3, 4, or 5.')
+
+
+        return model_moms
+
+
+    def err_vec(self, cutoff, nu, *args, simple):
+
+        for m in args:
+            m = args
+
+        # !!!!!! 
+        m_data = np.array(self.import_moments())[:,nu]
+       
+        # !!!!!!
+
+        if len(m) == 3: 
+            m0_data, m1_data, m2_data = m_data[0], m_data[1], m_data[2]
+            moms_data = np.array([[m0_data], [m1_data], [m2_data]])
+
+            m0_model, m1_model, m2_model = self.model_moments(cutoff, m[0], m[1], m[2])
+            moms_model = np.array([[m0_model],[m1_model], [m2_model]])
+
+        elif len(m) == 4: 
+            m0_data, m1_data, m2_data, m3_data = m_data[0], m_data[1], m_data[2], m_data[3]
+            moms_data = np.array([[m0_data], [m1_data], [m2_data],[m3_data]])
+
+            m0_model, m1_model, m2_model, m3_model =self.model_moments(cutoff, m[0], m[1], m[2], m[3])
+            moms_model = np.array([[m0_model],[m1_model], [m2_model], [m3_model]])
+
+        elif len(m) == 5: 
+            m0_data, m1_data, m2_data, m3_data, m4_data = m_data[0], m_data[1], m_data[2], m_data[3], m_data[4]
+            moms_data = np.array([[m0_data], [m1_data], [m2_data],[m3_data], [m4_data]])
+
+            m0_model, m1_model, m2_model, m3_model, m4_model = self.model_moments(cutoff, m[0], m[1], m[2], m[3], m[4])
+            moms_model = np.array([[m0_model],[m1_model], [m2_model], [m3_model], [m4_model]])
+            
+        else:
+            print('The number of moments is unexpected; it must be equal to 3, 4, or 5.')
+            
+        if simple:
+            err_vec = moms_model - moms_data
+        else:
+            err_vec = (moms_model - moms_data) / moms_data
+
+        return err_vec
+
+
+    def criterion(self, params, *args):
+
+        cutoff, nu, W = args
+        simple=False
+
+        if len(params) == 3:
+            m0, m1, m2 = params
+            err = self.err_vec(cutoff, nu, m0, m1, m2, simple=simple)
+
+        if len(params) == 4:
+            m0, m1, m2, m3 = params
+            err = self.err_vec(cutoff, nu, m0, m1, m2, m3, simple=simple)
+
+        if len(params) == 5:
+            m0, m1, m2, m3, m4 = params
+            err = self.err_vec(cutoff, nu, m0, m1, m2, m3, m4, simple=simple)
+
+        crit_val = np.dot(np.dot(err.T, W), err) 
+
+        return crit_val
+
+    def GMM(self, params_init, cutoff, nu):
+
+        simple = False
+
+        W_hat = np.eye(len(params_init)) # ? because we don't have data -  only moments - we don't need to optimize this ?  
+        gmm_args = (cutoff, nu, W_hat) #(pts, cutoff, W_hat)
+        
+        norm_bond = (0,1),
+        mu1_bond = (0,cutoff),
+        mu2_bond = (0, cutoff),
+        mu3_bond = (-cutoff, cutoff),
+        mu4_bond = (-cutoff, cutoff),
+        
+        bs = norm_bond + mu1_bond + mu2_bond + mu3_bond +  mu4_bond
+
+        results = opt.minimize(self.criterion, params_init, args=(gmm_args),
+                               method='L-BFGS-B', bounds=bs[:len(params_init)] )
+
+        return results.x 
+
+                
+    def prob_approx(self, export_probabilities=True, export_cumulants=True):
+        
+        m = self.n_modes
+        Nu = self.n_sector_max
+        
+        A_2, Mu1_2, Mu2_2,  A_3, Mu1_3, Mu2_3, Mu3_3,  A_4, Mu1_4, Mu2_4, Mu3_4, Mu4_4 = self.get_cumulants()
+        
+        #!!! Do you need this?
+        data_minors = np.genfromtxt(self.path + f'/output/Minors0-1_{self.id_}.dat')
+
+        Z_v_0 = np.zeros((Nu),dtype=np.complex128)
+
+        for j in range(Nu):
+             Z_v_0[j] =  data_minors[j,1] + 1j*data_minors[j,2]
+        
+        # You need only this
+        M, _m, _n, _r = import_input(self.path, f"/GBS_matrix.dat")
+        # M, _m, _n, _r, _n_cutoff, _n_mc, _batch_size
+        normalization = Z_v_0[0].real # (Z_v_0[0].real)*Z(M)
+       
+        probability_approx_2 = 0
+        probability_approx_3 = 0
+        probability_approx_4 = 0
+        
+        k_min_2 = Nu
+        k_max_2 = 0
+        k_min_3 = Nu
+        k_max_3 = 0
+        k_min_4 = Nu
+        k_max_4 = 0
+
+        for k in range(Nu):
+            p2 = self.guess_fun(m, A_2[k], Mu1_2[k], Mu2_2[k])/normalization 
+            p3 = self.guess_fun(m, A_3[k], Mu1_3[k], Mu2_3[k], Mu3_3[k])/normalization
+            p4 = self.guess_fun(m, A_4[k], Mu1_4[k], Mu2_4[k], Mu3_4[k], Mu4_4[k])/normalization 
+            
+            if p2==p2 and p2<1 and p2>0:
+                probability_approx_2 += p2 
+                k_min_2 = min(k, k_min_2)
+                k_max_2 = max(k, k_max_2)
+    
+            if p3==p3 and p3<1 and p3>0: 
+                probability_approx_3 += p3
+                k_min_3 = min(k, k_min_3)
+                k_max_3 = max(k, k_max_3)
+                
+            if p4 == p4 and p4<1 and p4>0:
+                probability_approx_4 += p4
+                k_min_4 = min(k, k_min_4)
+                k_max_4 = max(k, k_max_4)
+           
+        if export_probabilities == True:
+            
+            names = (
+                    [
+                        'm', 
+                        'p2', 'k_min_2', 'k_max_2', 
+                        'p3', 'k_min_3', 'k_max_3',
+                        'p4', 'k_min_4', 'k_max_4',
+                    ]
+                )
+
+            values = (
+                    [
+                        m,
+                        probability_approx_2, 
+                        k_min_2, k_max_2, 
+                        probability_approx_3,
+                        k_min_3, k_max_3, 
+                        probability_approx_4,
+                        k_min_4, k_max_4, 
+                    ]
+                )
+            
+            with open(self.path + f"/output/Result_{self.id_}.dat", 'w') as ouf:
+                
+                for i in range(len(values)):
+                    ouf.writelines(names[i]+ '\t' + str(values[i]) + '\n')
+            
+            
+        if export_cumulants==True:
+            
+            with open(self.path+f"/output/Cumulants_{self.id_}.dat", 'w') as ouf:
+                header = '\t'.join(
+                    ['nu', 'A2', 'M12', 'M22', 'A3', 'M13', 'M23', 'M33', 'A4', 'M14', 'M24', 'M34', 'M44']
+                )
+                ouf.write(header + '\n')
+
+                for k in range(Nu):
+                    values = '\t'.join(
+                        [str(k), 
+                         str(A_2[k]), str(Mu1_2[k]), str(Mu2_2[k]), 
+                         str(A_3[k]), str(Mu1_3[k]), str(Mu2_3[k]), str(Mu3_3[k]), 
+                         str(A_4[k]), str(Mu1_4[k]), str(Mu2_4[k]), str(Mu3_4[k]), str(Mu4_4[k])]
+                    )
+                    ouf.write(values + '\n')
+            
+
+        return probability_approx_2, probability_approx_3, probability_approx_4
 
 ## Get approximate probabilities
 
 def get_approx_probabilities( path=return_path() ):
-
-    data_ids = np.genfromtxt(path + '/input/samples_ids.dat', dtype=str)
-
-    ids = [int(i) for i in data_ids[:,0]]
-    samples = data_ids[:,1]
+    
+    data_ids = np.loadtxt(path + '/input/samples_ids.dat', dtype=str,ndmin=1)
+    
+    if data_ids.ndim == 1:
+        ids = [int(data_ids[0])]
+        samples =  [data_ids[1]]
+    else:
+        ids = [int(i) for i in data_ids[:,0]]
+        samples = data_ids[:,1]
 
     dict_probabilities = {}
+    
+    # Compile cpp file - see on the top
+    #cmd = "cpp/Minors.cpp"
+    #subprocess.call(["g++", cmd])
     
     for i in ids:
         sample = samples[i]
@@ -2275,24 +2671,35 @@ def get_approx_probabilities( path=return_path() ):
             ]
         )
         
+        print(f"Computation for sample #{i} of {len(ids)} is completed.")
+        
     return  dict_probabilities
 
 def import_approx_probabilities( path=return_path() ):
 
-    data_ids = np.genfromtxt(path + '/input/samples_ids.dat', dtype=str)
+#     data_ids = np.genfromtxt(path + '/input/samples_ids.dat', dtype=str)
 
-    ids = [int(i) for i in data_ids[:,0]]
-    samples = data_ids[:,1]
+#     ids = [int(i) for i in data_ids[:,0]]
+#     samples = data_ids[:,1]
     
+    data_ids = np.loadtxt(path + '/input/samples_ids.dat', dtype=str,ndmin=1)
+    
+    if data_ids.ndim == 1:
+        ids = [int(data_ids[0])]
+        samples =  [data_ids[1]]
+    else:
+        ids = [int(i) for i in data_ids[:,0]]
+        samples = data_ids[:,1]
+        
     dict_probabilities = {}
     
     for i in ids:
         sample = samples[i]
         
-        data_result = np.genfromtxt(path + f'/output/Result_{i}.dat', skip_header=1)
-        probability_approx_2 =  data_result[3]
-        probability_approx_3 = data_result[4]
-        probability_approx_4 = data_result[5]
+        data_result = np.genfromtxt(path + f'/output/Result_{i}.dat')
+        probability_approx_2 =  data_result[1,1]
+        probability_approx_3 = data_result[4,1]
+        probability_approx_4 = data_result[7,1]
                 
         dict_probabilities[sample] = (
             [
@@ -2306,8 +2713,8 @@ def import_approx_probabilities( path=return_path() ):
 
 def compute_probabilities(samples, path=return_path() ):
     
-    M, m, n, r, n_cutoff, n_mc, batch_size = import_input(path, "/GBS_matrix.dat")
-    
+    M, m, n, r = import_input(path, "/GBS_matrix.dat")
+    #M, m, n, r, n_cutoff, n_mc, batch_size
     submatriсes_export(M, samples, path)
     
     dict_probabilities = get_approx_probabilities(path = path)
@@ -2440,12 +2847,24 @@ def get_dict_format(df):
             
     return dict_format
 
-### Tests 
+### Metrics
 def relative_weighted_error(p, q):
     
     rwe = np.mean([abs(1 - p[i]/q[i]) for i in range(len(p))])
     
     return rwe
+
+def cosine_similarity(p, q):
+    
+    cs = sum([p[i]*q[i] for i in range(len(p))])/(sum([p**2 for p in p])*sum([q**2 for q in q]))**0.5
+    
+    return cs
+
+def mean_absolute_percentage_error(p, q):
+    
+    mape = np.mean([abs(1 - q[i]/p[i]) for i in range(len(p))])
+    
+    return mape
 
 def fidelity(p, q):
 
@@ -2480,7 +2899,7 @@ def get_tests_df(df):
     tests_dictionary = (
         {
 
-            "relative_weighted_error": 
+            "relative weighted error": 
             [relative_weighted_error(p_ex,p_ex), 
              relative_weighted_error(p_ex,p_app_2),
              relative_weighted_error(p_ex,p_app_3),
@@ -2488,7 +2907,26 @@ def get_tests_df(df):
              relative_weighted_error(p_ex,p_unif)
              
             ],
-            "total_variation_distance" :  
+            
+            "mape": 
+            [mean_absolute_percentage_error(p_ex,p_ex), 
+             mean_absolute_percentage_error(p_ex,p_app_2),
+             mean_absolute_percentage_error(p_ex,p_app_3),
+             mean_absolute_percentage_error(p_ex,p_app_4),
+             mean_absolute_percentage_error(p_ex,p_unif)
+             
+            ],
+            
+            "cosine similarity": 
+            [cosine_similarity(p_ex,p_ex), 
+             cosine_similarity(p_ex,p_app_2),
+             cosine_similarity(p_ex,p_app_3),
+             cosine_similarity(p_ex,p_app_4),
+             cosine_similarity(p_ex,p_unif)
+             
+            ],
+            
+            "total variation distance" :  
             [total_variation_distance(p_ex,p_ex), 
              total_variation_distance(p_ex,p_app_2),
              total_variation_distance(p_ex,p_app_3),
@@ -2502,7 +2940,7 @@ def get_tests_df(df):
              fidelity(p_ex,p_app_4), 
              fidelity(p_ex,p_unif) 
             ] ,
-            "cross_entropy" :
+            "cross entropy" :
             [cross_entropy(p_ex,p_ex),
              cross_entropy(p_ex,p_app_2),
              cross_entropy(p_ex,p_app_3),
@@ -2527,6 +2965,40 @@ def get_tests_df(df):
                     ])
                 )
 
-    df_tests.index.name = "test"
+    df_tests.index.name = "metric"
 
     return df_tests
+
+## Samples tests 
+
+def HOG_rate(experimental_samples, mockup_samples, M):
+    
+    """Returns a value of Heavy Output Generation rate 
+    for target samples (experimental_samples) and from
+    adversary samples (mockup_samples)."""
+    
+    r = 0 
+    batch_size = len(experimental_samples)
+    
+    for i in range(batch_size):
+        
+        r += (
+            prob_exact(experimental_samples[i], M)/
+            (
+                 prob_exact(experimental_samples[i], M) +
+                 prob_exact(mockup_samples[i], M)
+            ) / batch_size
+        )
+    
+    return r
+
+# exp_samples = np.copy(samples) 
+# adv_samples = np.copy(uniform_samples)  
+
+# res_forw = []
+# res_back = []
+
+# for i in range(len(exp_samples)):
+#     res_forw.append(HOG_rate(exp_samples, adv_samples,i, M))
+#     res_back.append(HOG_rate(adv_samples, exp_samples,i, M))
+    

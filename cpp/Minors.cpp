@@ -1,3 +1,4 @@
+// Created by Alexey Rubtsov 
 #include "headers.h"
 #include "matrix.h"
 const char* in_name="data/Submatrix.dat";
