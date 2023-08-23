@@ -2301,21 +2301,24 @@ class CumulantUtility(MomentUtility):
             m = args
 
         if len(m) == 3:
+            
+            # why not m[0] *(1/(m[2] * np.sqrt(2 * np.pi)))?
+            # further I will include a correct normalization 
 
-            pdf_vals = m[0] *(1/(m[2] * np.sqrt(2 * np.pi)))*(
+            pdf_vals = m[0] *(
                          np.exp( - (x - m[1])**2 / (2 * m[2]**2)) 
                       ) 
 
         if len(m) == 4: 
 
-            pdf_vals = m[0] *(1/(m[2] * np.sqrt(2 * np.pi)))*(
+            pdf_vals = m[0] *(
                          np.exp( - (x - m[1])**2 / (2 * m[2]**2)) 
                        * np.exp(+ m[3]*(x - m[1])**3/(3*m[2]**3))
                       ) 
 
         if len(m) == 5: 
 
-            pdf_vals = m[0] *(1/(m[2] * np.sqrt(2 * np.pi)))*(
+            pdf_vals = m[0] *(
                          np.exp( - (x - m[1])**2 / (2 * m[2]**2)) 
                        * np.exp(+ m[3]*(x - m[1])**3/(3*m[2]**3))
                        * np.exp(+ m[4]*(x - m[1])**4/(8*m[2]**4))
@@ -2552,7 +2555,7 @@ class CumulantUtility(MomentUtility):
         # You need only this
         M, _m, _n, _r = import_input(self.path, f"/GBS_matrix.dat")
         # M, _m, _n, _r, _n_cutoff, _n_mc, _batch_size
-        normalization = Z_v_0[0].real # (Z_v_0[0].real)*Z(M)
+        normalization = Z_v_0[0].real/Z(M) 
        
         probability_approx_2 = 0
         probability_approx_3 = 0
