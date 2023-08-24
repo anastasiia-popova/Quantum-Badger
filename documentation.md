@@ -6,8 +6,10 @@ Use default settings
 
 Input initialization
 
+```
 r_, phi_ = input_state(r, m, n) 
 A = set_input(r_, phi_) 
+```
 
 
 There are two options for defining the interferometer matrix
@@ -17,8 +19,11 @@ or
 `U = import_interferometer(path, file_name)`
 
 After 
+
 `M = set_device_parameters(r, A, U)`
+
 Or 
+
 `M = import_input(path, "/GBS_matrix.dat")`
 
 ## Get DataFrame for basis states
@@ -26,6 +31,7 @@ Or
 ```
 df_basis = get_basis_df(M)
 ```
+
 ```
 # Find probability of a specific sample in DataFrame
 sample = [0]*m
@@ -50,17 +56,18 @@ samples = import_samples(path, "/samples.dat")
 ## Compute minors 
 
 `compute_minors()`
-compute minors for all samples in `input`
+
+Computes minors for all samples in `input`
 
 ## Compute moments 
 
 
-there is a class `MomentUtility()` which compute moments from minors up to 4th order for one sample. 
-To use it one needs to crete an instanse of the class
+there is a class `MomentUtility()` which computes moments from minors up to 4th order for one sample. 
+To use it one needs to create an instance of the class
 
 `moments =  MomentUtility(id_ = 1, n_moments = 4, path=path) `
 
-where `id_` is the id of a sample, `n_moments` number of moments for computation. (
+where `id_` is the id of a sample, and `n_moments` number of moments for computation. 
 
 With export
 
@@ -70,7 +77,7 @@ moments.export_moments()
 m1_, m2_, m3_, m4_ = moments.get_moments()
 ```
 
-## Get approximate probabilitie
+## Get approximate probabilities
 
 ```
 cumulants = CumulantUtility(id_ = id_, n_moments = 4)
@@ -91,5 +98,4 @@ If you have only samples and want to compute probabilities for them.
 ```
 dict_probabilities = compute_probabilities(samples)
 ```
-
 

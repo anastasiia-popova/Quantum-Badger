@@ -2458,10 +2458,7 @@ class CumulantUtility(MomentUtility):
         for m in args:
             m = args
 
-        # !!!!!! 
-        m_data = np.array(self.import_moments())[:,nu]
-       
-        # !!!!!!
+        m_data = np.array(self.import_moments())[:,nu]  
 
         if len(m) == 3: 
             m0_data, m1_data, m2_data = m_data[0], m_data[1], m_data[2]
@@ -2526,13 +2523,20 @@ class CumulantUtility(MomentUtility):
         norm_bond = (0,1),
         mu1_bond = (0,cutoff),
         mu2_bond = (0, cutoff),
-        mu3_bond = (-cutoff, cutoff),
-        mu4_bond = (-cutoff, cutoff),
+        # mu3_bond = (-cutoff, cutoff),
+        # mu4_bond = (-cutoff, cutoff),
+        mu3_bond = (-1, 1),
+        mu4_bond = (-1, 1),
+        
         
         bs = norm_bond + mu1_bond + mu2_bond + mu3_bond +  mu4_bond
 
         results = opt.minimize(self.criterion, params_init, args=(gmm_args),
-                               method='L-BFGS-B', bounds=bs[:len(params_init)] )
+                               method='L-BFGS-B',bounds=bs[:len(params_init)] )
+        
+        
+        # results = opt.minimize(self.criterion, params_init, args=(gmm_args),
+        #                        method='L-BFGS-B', bounds=bs[:len(params_init)] )
 
         return results.x 
 
@@ -2543,8 +2547,7 @@ class CumulantUtility(MomentUtility):
         Nu = self.n_sector_max
         
         A_2, Mu1_2, Mu2_2,  A_3, Mu1_3, Mu2_3, Mu3_3,  A_4, Mu1_4, Mu2_4, Mu3_4, Mu4_4 = self.get_cumulants()
-        
-        #!!! Do you need this?
+
         data_minors = np.genfromtxt(self.path + f'/output/Minors0-1_{self.id_}.dat')
 
         Z_v_0 = np.zeros((Nu),dtype=np.complex128)
@@ -2552,9 +2555,9 @@ class CumulantUtility(MomentUtility):
         for j in range(Nu):
              Z_v_0[j] =  data_minors[j,1] + 1j*data_minors[j,2]
         
-        # You need only this
+     
         M, _m, _n, _r = import_input(self.path, f"/GBS_matrix.dat")
-        # M, _m, _n, _r, _n_cutoff, _n_mc, _batch_size
+
         normalization = Z_v_0[0].real/Z(M) 
        
         probability_approx_2 = 0
@@ -2636,6 +2639,97 @@ class CumulantUtility(MomentUtility):
             
 
         return probability_approx_2, probability_approx_3, probability_approx_4
+    
+    def import_cumulants(self):
+
+   
+        Nu = self.n_sector_max
+        
+        A_2 = np.zeros(Nu)
+        Mu1_2 = np.zeros(Nu)
+        Mu2_2 = np.zeros(Nu)
+        A_3 = np.zeros(Nu)
+        Mu1_3 = np.zeros(Nu)
+        Mu2_3 = np.zeros(Nu)
+        Mu3_3 = np.zeros(Nu)
+        A_4  = np.zeros(Nu)
+        Mu1_4 = np.zeros(Nu)
+        Mu2_4 = np.zeros(Nu)
+        Mu3_4 = np.zeros(Nu)
+        Mu4_4 = np.zeros(Nu)
+        
+        
+        data_cumulants = np.genfromtxt(self.path + f'/output/Cumulants_{self.id_}.dat', skip_header=1)
+        
+        A_2 = data_cumulants[:,1]
+        Mu1_2 = data_cumulants[:,2]
+        Mu2_2 = data_cumulants[:,3]
+        A_3 = data_cumulants[:,4]
+        Mu1_3 = data_cumulants[:,5]
+        Mu2_3 = data_cumulants[:,6]
+        Mu3_3 = data_cumulants[:,7]
+        A_4  = data_cumulants[:,8]
+        Mu1_4 = data_cumulants[:,9]
+        Mu2_4 = data_cumulants[:,10]
+        Mu3_4 = data_cumulants[:,11]
+        Mu4_4 = data_cumulants[:,12]
+
+        return A_2, Mu1_2, Mu2_2,  A_3, Mu1_3, Mu2_3, Mu3_3,  A_4, Mu1_4, Mu2_4, Mu3_4, Mu4_4
+
+    def prob_approx_sectors(self, export_probabilities=True, export_cumulants=True):
+
+        m = self.n_modes
+        Nu = self.n_sector_max
+
+        A_2, Mu1_2, Mu2_2,  A_3, Mu1_3, Mu2_3, Mu3_3,  A_4, Mu1_4, Mu2_4, Mu3_4, Mu4_4 = self.import_cumulants()
+
+        data_minors = np.genfromtxt(self.path + f'/output/Minors0-1_{self.id_}.dat')
+
+        Z_v_0 = np.zeros((Nu),dtype=np.complex128)
+
+        for j in range(Nu):
+             Z_v_0[j] =  data_minors[j,1] + 1j*data_minors[j,2]
+
+
+        M, _m, _n, _r = import_input(self.path, f"/GBS_matrix.dat")
+
+        normalization = Z_v_0[0].real/Z(M) 
+
+        probability_approx_2 = np.zeros(Nu)
+        probability_approx_3 = np.zeros(Nu)
+        probability_approx_4 = np.zeros(Nu)
+
+        k_min_2 = Nu
+        k_max_2 = 0
+        k_min_3 = Nu
+        k_max_3 = 0
+        k_min_4 = Nu
+        k_max_4 = 0
+
+        for k in range(Nu):
+            p2 = self.guess_fun(m, A_2[k], Mu1_2[k], Mu2_2[k])/normalization 
+            p3 = self.guess_fun(m, A_3[k], Mu1_3[k], Mu2_3[k], Mu3_3[k])/normalization
+            p4 = self.guess_fun(m, A_4[k], Mu1_4[k], Mu2_4[k], Mu3_4[k], Mu4_4[k])/normalization 
+
+            if p2==p2 and p2<1 and p2>0:
+                probability_approx_2[k]= p2 
+                k_min_2 = min(k, k_min_2)
+                k_max_2 = max(k, k_max_2)
+
+            if p3==p3 and p3<1 and p3>0: 
+                probability_approx_3[k] = p3
+                k_min_3 = min(k, k_min_3)
+                k_max_3 = max(k, k_max_3)
+
+            if p4 == p4 and p4<1 and p4>0:
+                probability_approx_4[k] = p4
+                k_min_4 = min(k, k_min_4)
+                k_max_4 = max(k, k_max_4)
+
+
+
+        return probability_approx_2, probability_approx_3, probability_approx_4
+    
 
 ## Get approximate probabilities
 

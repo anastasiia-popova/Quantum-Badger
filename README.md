@@ -77,12 +77,12 @@ To use your own interferometer matrix, you need to replace `matrix_U.dat`  file.
     
 # Usage 
 --- 
-One can find the possible use cases of the **Quantum Badger** module in `demo.ipynb`. 
+One can find the possible use cases of the **Quantum Badger** module in `tutorial.ipynb`. 
 
-It is possible to use our module in two ways: to simulate your GBS device or to investigate how our method performs in general. For simulation, you need to specify the parameters of the setup and obtain samples. After this, you can compute approximate probabilities and evaluate the results using four metrics: **Relative Weighted Error**, **Total Variation Distance**, **Fidelity**, and **Cross Entropy**.
- 
+It is possible to use our module in two ways: to simulate your GBS device or to investigate how our method performs in general. For simulation, you need to specify the parameters of the setup and obtain samples. After this, you can compute approximate probabilities and evaluate the results using 5 metrics: **Relative Weighted Error**, **Mean Absolute Percentage Error**, **Total Variation Distance**, **Cosine Similarity**, and **Fidelity**. 
+
+The details about the method can be found in `method_details.ipynb`. 
     
-
 **Note**
     
 `function?` or `help(function)` gives all information you could need about the method.
