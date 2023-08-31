@@ -1,16 +1,16 @@
-<p align="right">
+<p align="center">
 <img src="images/qb_image_2.png" alt="Drawing" style="width: 300px;"/> 
-<p align="right">
+<p align="center">
 
-Quantum devices seek to "quantum advantage": a result beyond the capabilities of classical computers. A particular type of optical quantum computer - Gaussian Boson Sampler - is one of the most promising candidates for achieving this in the nearest future. Fast simulation methods play a crucial role in assessing performance and enhancing these devices.   
+Quantum devices seek to **Quantum Advantage**: a result beyond the capabilities of classical computers. A particular type of optical quantum computer - Gaussian Boson Sampler - is one of the most promising candidates for achieving this in the nearest future. Fast simulation methods play a crucial role in assessing performance and enhancing these devices.   
     
     
 # Project Overview     
----     
+  
 **Quantum Badger** is a Python module that solves the Gaussian Boson Sampling problem with threshold detection. The main focus of this project is to demonstrate and validate the simulation method, proposed by the [A.S. Popova and A.N. Rubtsov](https://arxiv.org/pdf/2106.01445.pdf). At the current stage, this module is designed to compute probabilities of samples rather than generate samples from a distribution. We believe that our module could be valuable for testing the output of GBS devices and serving as a benchmark for other software.
     
 # Installation 
---- 
+
 
 To use the Quantum Budger on your local machine you need to download the repository and to have `Python 3` and the `g++` compiler installed. 
     
@@ -76,7 +76,7 @@ Each time when you initiate simulation all input and output data is generated in
 To use your own interferometer matrix, you need to replace `matrix_U.dat`  file.   
     
 # Usage 
---- 
+
 One can find the possible use cases of the **Quantum Badger** module in `tutorial.ipynb`. 
 
 It is possible to use our module in two ways: to simulate your GBS device or to investigate how our method performs in general. For simulation, you need to specify the parameters of the setup and obtain samples. After this, you can compute approximate probabilities and evaluate the results using 5 metrics: **Relative Weighted Error**, **Mean Absolute Percentage Error**, **Total Variation Distance**, **Cosine Similarity**, and **Fidelity**. 
@@ -89,7 +89,7 @@ The details about the method can be found in `method_details.ipynb`.
 
 
 # Results and Evaluation 
----
+
 Because we are developing an algorithm for computing probabilities, we do not compare our results with a device output directly. Instead, we evaluate the performance in two ways:
  
 **For devices having less than 30 modes**
@@ -103,8 +103,7 @@ Because we are developing an algorithm for computing probabilities, we do not co
 * We compare the frequency of occurrence of samples of small mid-sized GBS devices and the probabilities for these samples, computed approximately (we suppose here that a large part of output samples should have large probability). 
     
 # Future work  
----
-    
+
 Potential future work include:
     
 * Considering devices with photon losses; 
@@ -112,9 +111,7 @@ Potential future work include:
 * Implementation of the Markov Chain Monte Carlo sampling with the approximate evaluation of probabilities, developed here. 
  
 # Acknowledgments 
-    
----
-    
+ 
 We appreciate the Xanadu team for the free and open-source libraries that enabled us to benchmark our method.
     
 # Support 
@@ -122,5 +119,5 @@ We appreciate the Xanadu team for the free and open-source libraries that enable
 We would really welcome feedback, suggestions, comments, or criticism. If you have questions, you also can contact us at ppva.nastya@proton.me. 
 
 # Licence
---- 
+
 For this github repository, the [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) is used. 
