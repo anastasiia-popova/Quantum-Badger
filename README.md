@@ -1,5 +1,5 @@
-[![License][license-shield]](license-url)
-[![LinkedIn][linkedin-shield]](linkedin-url)
+[![License][license-shield]][license-url]
+[![LinkedIn][linkedin-shield]][linkedin-url]
 
 <p align="center">
 <img src="images/qb_image_2.png" alt="Drawing" style="width: 300px;"/> 
