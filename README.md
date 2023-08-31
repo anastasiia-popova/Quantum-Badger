@@ -16,7 +16,7 @@ To use the Quantum Budger on your local machine you need to download the reposit
     
 ## Codes and Resources Used
 
-* **Editor**: To run `demo.ipynb` file you need to install [Jupyter](https://jupyter.org/) enviroment. We used Jupyter Lab. 
+* **Editor**: To run `tutorial.ipynb` file you need to install [Jupyter](https://jupyter.org/) enviroment. We used Jupyter Lab. 
     
 * **Python version**: 3.9.13 
     
@@ -26,19 +26,19 @@ To reproduce the current project, you must the following Python libraries:
 
 **General Purpose**: `shutil`, `subprocess`
 
-**Data Manipulation**: `pandas`, `datetime`
+**Data Manipulation**: `pandas==1.5.3`, `jinja2==3.1.2`, `datetime`
 
-**Modelling**: `math`, `random`, `scipy`, `numpy`
+**Modelling**: `math`, `random`, `scipy==1.11.1`, `numpy==1.24.3`, `joblib==1.2.0`
     
-**Validation**: `strawberryfields`, `thewalrus`
+**Validation**: `strawberryfields==0.23.0`, `thewalrus==0.19.0`
 
-**Visualization**: `matplotlib`
+**Visualization**: `matplotlib==3.7.2`
 
 ## Data 
     
-All necessary data to reproduce basic functionality is included in the `/data` directory of the repository.
+All necessary data to reproduce basic functionality is generated in `tutorial.ipynb` and `method_details.ipynb`, and it is stored in the `/data` directory of the repository.
     
-Each time when you initiate simulation all input and output data is generated in the folder with the current date. The stucture of the generated data will be the following 
+Each time when you initiate simulation all input and output data is generated in the folder with the current date and time. The stucture of the generated data will be the following 
     
 ```
 ├── data
@@ -109,7 +109,7 @@ Potential future work include:
     
 * Considering devices with photon losses; 
 
-* Implementation of the Markov Chain Monte Carlo sampling using the approximate evaluation of probabilities, developed here. 
+* Implementation of the Markov Chain Monte Carlo sampling with the approximate evaluation of probabilities, developed here. 
  
 # Acknowledgments 
     

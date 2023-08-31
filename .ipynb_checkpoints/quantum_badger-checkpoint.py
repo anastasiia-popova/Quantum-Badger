@@ -4,6 +4,7 @@ import random
 from math import * 
 import os
 import pandas as pd
+from joblib import Parallel, delayed
 
 import scipy.optimize as opt
 
@@ -12,6 +13,9 @@ import subprocess
 old_settings = np.seterr(all='ignore') 
 
 from datetime import datetime
+
+import warnings
+warnings.filterwarnings("ignore")
 
 # Compiling c++ file
 cmd = "cpp/Minors.cpp"
@@ -1630,6 +1634,36 @@ def compute_minors(path=return_path):
 
 class MomentUtility():
     
+    """
+    A class for computing and exporting moments from complex matrix data.
+
+    Args:
+        id_ (int): Identifier for the sample.
+        n_moments (int, optional): Number of moments to compute. Default is 4. Other options are not available now.
+        path (str, optional): Path to the directory containing input and output files. 
+                             Default is determined by the `return_path` function.
+
+    Attributes:
+        id_ (int): Identifier for the sample.
+        path (str): Path to the directory containing input and output files.
+        n_moments (int): Number of moments to compute.
+        matrix (numpy.ndarray): Complex matrix data imported from a file.
+        n_modes (int): Number of modes in the complex matrix.
+        n_sector_max (int): Maximum number of sectors for moment computation.
+        n_sector_step (float): Step size for sector calculation.
+
+    Methods:
+        export_minors(): Computes minors for a sample and saves the results in the specified path.
+        moment_formula(n, *args): Computes a moment using the given formula.
+        import_minors(): Imports minor data from files and performs Fast Fourier Transform.
+        compute_moments(Z_v_0f, Z_v_1f, Z_v_2f, Z_v_3f, Z_v_4f): Computes statistical moments.
+        get_moments(): Imports minors and computes statistical moments.
+        export_moments(): Exports computed moments to a file.
+
+    Returns:
+        MomentUtility: An instance of the MomentUtility class.
+    """
+    
     def __init__(
         self,
         id_,
@@ -1670,7 +1704,7 @@ class MomentUtility():
         path_level_down = os.path.split(path)[0]
         shutil.copy(path+f'/input/Submatrix_{index}.dat', path_level_down + files[4])
         
-        cmd = "cpp/Minors.cpp"
+        #cmd = "cpp/Minors.cpp"
         #subprocess.call(["g++", cmd])
         subprocess.call("./a.out") 
         #print("Finished:", cmd.split("/")[1], f"for sample #{index}")
@@ -1693,6 +1727,17 @@ class MomentUtility():
 
 
     def moment_formula(self, n, *args):
+        
+        """
+        Computes a moment using a specific formula for a given order.
+
+        Args:
+            n (int): Order of the moment.
+            *args: List of moments up to order n.
+
+        Returns:
+            float: Computed moment value.
+        """
     
         m = 0 
 
@@ -1733,6 +1778,13 @@ class MomentUtility():
         return m
     
     def import_minors(self):
+        
+        """
+        Imports minor data from files, performs FFT, and returns transformed data.
+
+        Returns:
+            tuple: Transformed minor data for different orders.
+        """
         
         m = self.n_modes
         Nu = self.n_sector_max
@@ -1793,7 +1845,19 @@ class MomentUtility():
 
  
     def compute_moments(self, Z_v_0f, Z_v_1f, Z_v_2f, Z_v_3f, Z_v_4f):
-        
+        """
+        Computes statistical moments using transformed minor data.
+
+        Args:
+            Z_v_0f (numpy.ndarray): Transformed minors' data for order 0-1.
+            Z_v_1f (numpy.ndarray): Transformed minors' data for order 1.
+            Z_v_2f (numpy.ndarray): Transformed minors' data for order 2.
+            Z_v_3f (numpy.ndarray): Transformed minors' data for order 3.
+            Z_v_4f (numpy.ndarray): Transformed minors' data for order 4.
+
+        Returns:
+            tuple: Mean, dispersion, third-order, and fourth-order moments.
+        """
         m = self.n_modes
         Nu = self.n_sector_max
         dnu = self.n_sector_step
@@ -1889,7 +1953,12 @@ class MomentUtility():
         return mean_ , disp_ , m3_ , m4_ 
 
     def get_moments(self):
-        
+        """
+        Imports minor data and computes moments.
+
+        Returns:
+            tuple: Mean, dispersion, third-order, and fourth-order moments.
+        """
         Z_v_0f, Z_v_1f, Z_v_2f, Z_v_3f, Z_v_4f = self.import_minors()
 
         mean_, disp_, m3_, m4_ = self.compute_moments(Z_v_0f, Z_v_1f, Z_v_2f, Z_v_3f, Z_v_4f)
@@ -1899,8 +1968,13 @@ class MomentUtility():
 
     # Export Moments
 
-    def export_moments(self):
-        
+    def export_moments(self, message=False):
+        """
+        Exports computed moments to a file.
+
+        Returns:
+            str: A message confirming the export of computed moments.
+        """
         m = self.n_modes
         Nu = self.n_sector_max
            
@@ -1911,8 +1985,8 @@ class MomentUtility():
                 ouf.write(f"{mean_[nu].real}\t{disp_[nu].real}\t{m3_[nu].real}\t{m4_[nu].real}\t")
                 if nu < (Nu+1):
                     ouf.write('\n')
-                    
-        return f"Moments were exported to {self.path}/output/Moments_{self.id_}.dat"
+        if  message:          
+            return f"Moments were exported to {self.path}/output/Moments_{self.id_}.dat"
     
     
 class CumulantUtility_old(MomentUtility):
@@ -2252,6 +2326,57 @@ class CumulantUtility_old(MomentUtility):
     
 class CumulantUtility(MomentUtility):
     
+    """
+    A class for calculating and analyzing cumulants of a distribution using moment information.
+
+    This class extends the MomentUtility class to provide methods for computing and analyzing cumulants
+    of a distribution based on moment information.
+
+    Args:
+        n_modes (int): Number of modes.
+        n_sector_max (int): Maximum number of sectors to consider.
+        n_sector_step (int): Step size for sectors.
+        path (str): Path to the data files.
+        id_ (str): Identifier for the data files.
+
+    Methods:
+        import_moments(self):
+            Imports and processes moment data from files.
+            Returns: Tuple containing moments data.
+
+        guess_fun(self, x, *args):
+            Computes the probability density function for a given mode.
+            Returns: Probability density values.
+
+        get_cumulants(self):
+            Computes cumulants up to 4th order using moment information.
+            Returns: Tuple containing cumulants information.
+
+        model_moments(self, cutoff, *args):
+            Computes model moments based on given parameters.
+            Returns: Tuple containing model moments.
+
+        err_vec(self, cutoff, nu, *args, simple):
+            Computes the error vector for model moments and data moments.
+            Returns: Error vector.
+
+        criterion(self, params, *args):
+            Computes the GMM criterion function.
+            Returns: GMM criterion value.
+
+        GMM(self, params_init, cutoff, nu):
+            Performs GMM estimation for cumulant parameters.
+            Returns: Tuple containing estimated parameters.
+
+        prob_approx(self, export_probabilities=True, export_cumulants=True):
+            Computes probability approximations using cumulant information.
+            Returns: Probability approximations for 2nd, 3rd, and 4th order.
+
+        import_cumulants(self):
+            Imports cumulants data from files.
+            Returns: Tuple containing cumulants information.
+
+    """
     
     def import_moments(self):
         
@@ -2282,7 +2407,7 @@ class CumulantUtility(MomentUtility):
 
         data_moments = np.genfromtxt(self.path+f'/output/Moments_{self.id_}.dat')
 
-        m0 = (Z_v_0f[:]/Z_v_0[0]).real #normalization
+        m0 = (Z_v_0f[:]/Z_v_0[0]).real #normalization  (Z_v_0f[:]/Z_v_0[0]).real
         m1 = data_moments[:, 0]
         m2 = data_moments[:, 1]
         m3 = data_moments[:, 2]
@@ -2336,17 +2461,29 @@ class CumulantUtility(MomentUtility):
         Nu = self.n_sector_max
         cutoff = int(m*2)
         moments_data = np.array(self.import_moments())
-
+        
+        n_jobs = 8
+        
+        
         # The 2nd order approximation 
         A_2 = np.zeros(Nu)
         Mu1_2 = np.zeros(Nu)
         Mu2_2 = np.zeros(Nu) 
+        
+        results = Parallel(n_jobs=n_jobs)(delayed(self.GMM)(np.array( moments_data[:3, nu]), cutoff, nu) for nu in range(Nu))
+        #print(results)
 
+        
         for nu in range(Nu):
             
-            params_init = np.array( moments_data[:3, nu])
-            #print(params_init)
-            A_2[nu], Mu1_2[nu],  Mu2_2[nu] = self.GMM(params_init, cutoff, nu)
+            A_2[nu], Mu1_2[nu],  Mu2_2[nu] = results[nu][:]
+        
+#         for nu in range(Nu):
+            
+#             params_init = np.array( moments_data[:3, nu])
+   
+#             A_2[nu], Mu1_2[nu],  Mu2_2[nu] = self.GMM(params_init, cutoff, nu)
+    
 
         # The 3rd order approximation 
         A_3 = np.zeros(Nu)
@@ -2354,12 +2491,17 @@ class CumulantUtility(MomentUtility):
         Mu2_3 = np.zeros(Nu)
         Mu3_3 = np.zeros(Nu)
 
-        for nu in range(Nu):
+#         for nu in range(Nu):
             
-            params_init =  moments_data[:4, nu]
-            A_3[nu], Mu1_3[nu],  Mu2_3[nu], Mu3_3[nu] = self.GMM(params_init, cutoff, nu)
-
-
+#             params_init =  moments_data[:4, nu]
+#             A_3[nu], Mu1_3[nu],  Mu2_3[nu], Mu3_3[nu] = self.GMM(params_init, cutoff, nu)
+        
+    
+        results = Parallel(n_jobs=n_jobs, prefer="threads")(delayed(self.GMM)(np.array( moments_data[:4, nu]), cutoff, nu) for nu in range(Nu))
+        
+        for nu in range(Nu):
+            A_3[nu], Mu1_3[nu], Mu2_3[nu], Mu3_3[nu] = results[nu][:]
+            
         # The 4th order approximation 
         A_4 = np.zeros(Nu)
         Mu1_4 = np.zeros(Nu)
@@ -2367,10 +2509,15 @@ class CumulantUtility(MomentUtility):
         Mu3_4 = np.zeros(Nu)
         Mu4_4 = np.zeros(Nu)
 
-        for nu in range(Nu):
+#         for nu in range(Nu):
             
-            params_init =  moments_data[:, nu]
-            A_4[nu], Mu1_4[nu],  Mu2_4[nu], Mu3_4[nu], Mu4_4[nu] = self.GMM(params_init, cutoff, nu) 
+#             params_init =  moments_data[:, nu]
+#             A_4[nu], Mu1_4[nu],  Mu2_4[nu], Mu3_4[nu], Mu4_4[nu] = self.GMM(params_init, cutoff, nu) 
+
+        results = Parallel(n_jobs=n_jobs)(delayed(self.GMM)(np.array( moments_data[:, nu]), cutoff, nu) for nu in range(Nu))
+        
+        for nu in range(Nu):
+            A_4[nu], Mu1_4[nu], Mu2_4[nu], Mu3_4[nu], Mu4_4[nu] = results[nu][:]
                     
         return A_2, Mu1_2, Mu2_2,  A_3, Mu1_3, Mu2_3, Mu3_3, A_4, Mu1_4, Mu2_4, Mu3_4, Mu4_4
 
@@ -2517,14 +2664,12 @@ class CumulantUtility(MomentUtility):
 
         simple = False
 
-        W_hat = np.eye(len(params_init)) # ? because we don't have data -  only moments - we don't need to optimize this ?  
+        W_hat = np.eye(len(params_init)) 
         gmm_args = (cutoff, nu, W_hat) #(pts, cutoff, W_hat)
         
         norm_bond = (0,1),
         mu1_bond = (0,cutoff),
         mu2_bond = (0, cutoff),
-        # mu3_bond = (-cutoff, cutoff),
-        # mu4_bond = (-cutoff, cutoff),
         mu3_bond = (-1, 1),
         mu4_bond = (-1, 1),
         
@@ -2534,18 +2679,13 @@ class CumulantUtility(MomentUtility):
         results = opt.minimize(self.criterion, params_init, args=(gmm_args),
                                method='L-BFGS-B',bounds=bs[:len(params_init)] )
         
-        
-        # results = opt.minimize(self.criterion, params_init, args=(gmm_args),
-        #                        method='L-BFGS-B', bounds=bs[:len(params_init)] )
-
         return results.x 
+    
+    def prob_approx(self, export_probabilities = True, export_cumulants=True):
 
-                
-    def prob_approx(self, export_probabilities=True, export_cumulants=True):
-        
         m = self.n_modes
         Nu = self.n_sector_max
-        
+
         A_2, Mu1_2, Mu2_2,  A_3, Mu1_3, Mu2_3, Mu3_3,  A_4, Mu1_4, Mu2_4, Mu3_4, Mu4_4 = self.get_cumulants()
 
         data_minors = np.genfromtxt(self.path + f'/output/Minors0-1_{self.id_}.dat')
@@ -2554,16 +2694,16 @@ class CumulantUtility(MomentUtility):
 
         for j in range(Nu):
              Z_v_0[j] =  data_minors[j,1] + 1j*data_minors[j,2]
-        
-     
+
+
         M, _m, _n, _r = import_input(self.path, f"/GBS_matrix.dat")
 
-        normalization = Z_v_0[0].real/Z(M) 
-       
-        probability_approx_2 = 0
-        probability_approx_3 = 0
-        probability_approx_4 = 0
-        
+        normalization = Z(M)/Z_v_0[0].real #Z_v_0[0].real/Z(M) 
+
+        probability_approx_2 = np.zeros(Nu)
+        probability_approx_3 = np.zeros(Nu)
+        probability_approx_4 = np.zeros(Nu)
+
         k_min_2 = Nu
         k_max_2 = 0
         k_min_3 = Nu
@@ -2575,52 +2715,24 @@ class CumulantUtility(MomentUtility):
             p2 = self.guess_fun(m, A_2[k], Mu1_2[k], Mu2_2[k])/normalization 
             p3 = self.guess_fun(m, A_3[k], Mu1_3[k], Mu2_3[k], Mu3_3[k])/normalization
             p4 = self.guess_fun(m, A_4[k], Mu1_4[k], Mu2_4[k], Mu3_4[k], Mu4_4[k])/normalization 
-            
+
             if p2==p2 and p2<1 and p2>0:
-                probability_approx_2 += p2 
+                probability_approx_2[k]= p2 
                 k_min_2 = min(k, k_min_2)
                 k_max_2 = max(k, k_max_2)
-    
+
             if p3==p3 and p3<1 and p3>0: 
-                probability_approx_3 += p3
+                probability_approx_3[k] = p3
                 k_min_3 = min(k, k_min_3)
                 k_max_3 = max(k, k_max_3)
-                
+
             if p4 == p4 and p4<1 and p4>0:
-                probability_approx_4 += p4
+                probability_approx_4[k] = p4
                 k_min_4 = min(k, k_min_4)
                 k_max_4 = max(k, k_max_4)
-           
-        if export_probabilities == True:
-            
-            names = (
-                    [
-                        'm', 
-                        'p2', 'k_min_2', 'k_max_2', 
-                        'p3', 'k_min_3', 'k_max_3',
-                        'p4', 'k_min_4', 'k_max_4',
-                    ]
-                )
-
-            values = (
-                    [
-                        m,
-                        probability_approx_2, 
-                        k_min_2, k_max_2, 
-                        probability_approx_3,
-                        k_min_3, k_max_3, 
-                        probability_approx_4,
-                        k_min_4, k_max_4, 
-                    ]
-                )
-            
-            with open(self.path + f"/output/Result_{self.id_}.dat", 'w') as ouf:
                 
-                for i in range(len(values)):
-                    ouf.writelines(names[i]+ '\t' + str(values[i]) + '\n')
-            
-            
         if export_cumulants==True:
+            
             
             with open(self.path+f"/output/Cumulants_{self.id_}.dat", 'w') as ouf:
                 header = '\t'.join(
@@ -2636,9 +2748,42 @@ class CumulantUtility(MomentUtility):
                          str(A_4[k]), str(Mu1_4[k]), str(Mu2_4[k]), str(Mu3_4[k]), str(Mu4_4[k])]
                     )
                     ouf.write(values + '\n')
+                    
+        if export_probabilities == True:
             
+            p_appr_2, p_appr_3, p_appr_4 = sum(probability_approx_2), sum(probability_approx_3), sum(probability_approx_4)
+            names = (
+                    [
+                        'm', 
+                        'p2', 'k_min_2', 'k_max_2', 
+                        'p3', 'k_min_3', 'k_max_3',
+                        'p4', 'k_min_4', 'k_max_4',
+                    ]
+                )
 
+            values = (
+                    [
+                        m,
+                        p_appr_2, 
+                        k_min_2, k_max_2, 
+                        p_appr_3,
+                        k_min_3, k_max_3, 
+                        p_appr_4,
+                        k_min_4, k_max_4, 
+                    ]
+                )
+            
+            with open(self.path + f"/output/Result_{self.id_}.dat", 'w') as ouf:
+                
+                for i in range(len(values)):
+                    ouf.writelines(names[i]+ '\t' + str(values[i]) + '\n')
+                    
+            return p_appr_2, p_appr_3, p_appr_4
+                    
+    
         return probability_approx_2, probability_approx_3, probability_approx_4
+    
+
     
     def import_cumulants(self):
 
@@ -2676,64 +2821,31 @@ class CumulantUtility(MomentUtility):
 
         return A_2, Mu1_2, Mu2_2,  A_3, Mu1_3, Mu2_3, Mu3_3,  A_4, Mu1_4, Mu2_4, Mu3_4, Mu4_4
 
-    def prob_approx_sectors(self, export_probabilities=True, export_cumulants=True):
-
-        m = self.n_modes
-        Nu = self.n_sector_max
-
-        A_2, Mu1_2, Mu2_2,  A_3, Mu1_3, Mu2_3, Mu3_3,  A_4, Mu1_4, Mu2_4, Mu3_4, Mu4_4 = self.import_cumulants()
-
-        data_minors = np.genfromtxt(self.path + f'/output/Minors0-1_{self.id_}.dat')
-
-        Z_v_0 = np.zeros((Nu),dtype=np.complex128)
-
-        for j in range(Nu):
-             Z_v_0[j] =  data_minors[j,1] + 1j*data_minors[j,2]
-
-
-        M, _m, _n, _r = import_input(self.path, f"/GBS_matrix.dat")
-
-        normalization = Z_v_0[0].real/Z(M) 
-
-        probability_approx_2 = np.zeros(Nu)
-        probability_approx_3 = np.zeros(Nu)
-        probability_approx_4 = np.zeros(Nu)
-
-        k_min_2 = Nu
-        k_max_2 = 0
-        k_min_3 = Nu
-        k_max_3 = 0
-        k_min_4 = Nu
-        k_max_4 = 0
-
-        for k in range(Nu):
-            p2 = self.guess_fun(m, A_2[k], Mu1_2[k], Mu2_2[k])/normalization 
-            p3 = self.guess_fun(m, A_3[k], Mu1_3[k], Mu2_3[k], Mu3_3[k])/normalization
-            p4 = self.guess_fun(m, A_4[k], Mu1_4[k], Mu2_4[k], Mu3_4[k], Mu4_4[k])/normalization 
-
-            if p2==p2 and p2<1 and p2>0:
-                probability_approx_2[k]= p2 
-                k_min_2 = min(k, k_min_2)
-                k_max_2 = max(k, k_max_2)
-
-            if p3==p3 and p3<1 and p3>0: 
-                probability_approx_3[k] = p3
-                k_min_3 = min(k, k_min_3)
-                k_max_3 = max(k, k_max_3)
-
-            if p4 == p4 and p4<1 and p4>0:
-                probability_approx_4[k] = p4
-                k_min_4 = min(k, k_min_4)
-                k_max_4 = max(k, k_max_4)
-
-
-
-        return probability_approx_2, probability_approx_3, probability_approx_4
     
 
 ## Get approximate probabilities
 
 def get_approx_probabilities( path=return_path() ):
+    
+    """
+    Computes approximate probabilities using Moment and Cumulant Utilities for given samples.
+
+    Args:
+        path (str): The base path to the directory containing input data and utilities.
+                    Default is set to the return value of return_path() function.
+
+    Returns:
+        dict: A dictionary containing sample names as keys and lists of approximate probabilities
+              (second, third, and fourth order) as values.
+
+    Note:
+        This function loads sample IDs from 'input/samples_ids.dat' file and uses MomentUtility and
+        CumulantUtility classes to compute probabilities. It compiles a C++ file and performs calculations
+        for each sample ID. Progress is printed during computation.
+
+    Example:
+        approximate_probs = get_approx_probabilities('/path/to/data_directory')
+    """
     
     data_ids = np.loadtxt(path + '/input/samples_ids.dat', dtype=str,ndmin=1)
     
@@ -2773,11 +2885,26 @@ def get_approx_probabilities( path=return_path() ):
     return  dict_probabilities
 
 def import_approx_probabilities( path=return_path() ):
+    
+    """
+    Imports approximate probabilities from output files for given samples.
 
-#     data_ids = np.genfromtxt(path + '/input/samples_ids.dat', dtype=str)
+    Args:
+        path (str): The base path to the directory containing input data and output files.
+                    Default is set to the return value of return_path() function.
 
-#     ids = [int(i) for i in data_ids[:,0]]
-#     samples = data_ids[:,1]
+    Returns:
+        dict: A dictionary containing sample names as keys and lists of imported approximate probabilities
+              (second, third, and fourth order) as values.
+
+    Note:
+        This function loads sample IDs from 'input/samples_ids.dat' file and imports probabilities from
+        corresponding 'output/Result_<id>.dat' files. Probabilities are extracted from specific rows in the
+        data files. The imported probabilities are organized in a dictionary for each sample.
+
+    Example:
+        imported_probs = import_approx_probabilities('/path/to/data_directory')
+    """
     
     data_ids = np.loadtxt(path + '/input/samples_ids.dat', dtype=str,ndmin=1)
     
@@ -2810,8 +2937,27 @@ def import_approx_probabilities( path=return_path() ):
 
 def compute_probabilities(samples, path=return_path() ):
     
+    """
+    Compute approximate probabilities for given samples using submatrices and utilities.
+
+    Args:
+        samples (list): List of sample IDs or names for which probabilities will be computed.
+        path (str): The base path to the directory containing input data and utilities.
+                    Default is set to the return value of return_path() function.
+
+    Returns:
+        dict: A dictionary containing sample names as keys and lists of approximate probabilities
+              (second, third, and fourth order) as values.
+
+    Note:
+        This function computes approximate probabilities for the specified samples using submatrices
+        and utility functions. It imports the input matrix from 'GBS_matrix.dat', exports submatrices,
+        and retrieves approximate probabilities using the get_approx_probabilities function.
+
+    """
+
     M, m, n, r = import_input(path, "/GBS_matrix.dat")
-    #M, m, n, r, n_cutoff, n_mc, batch_size
+
     submatriсes_export(M, samples, path)
     
     dict_probabilities = get_approx_probabilities(path = path)
@@ -2821,7 +2967,22 @@ def compute_probabilities(samples, path=return_path() ):
 ## Generate DataFrame with results
 
 def get_basis_df(M):
-    
+    """
+    Obtain a DataFrame of basis states of GBS device with threshold detectors.
+
+    Args:
+        M (numpy.ndarray): The input matrix for which basis states will be generated.
+
+    Returns:
+        pandas.DataFrame: A DataFrame containing basis states as rows and their properties (sum of clicked 
+                          detectors and exact probabilities) as columns.
+
+    Note:
+        This function generates all possible basis sets using threshold_basis_set function and calculates
+        exact probabilities for each basis set using prob_exact function. The properties of each basis set
+        are organized into a DataFrame for analysis and further processing.
+
+    """
     m = len(M)
     
     # Obtain all possible samples for theshold detection
@@ -2856,6 +3017,23 @@ def get_basis_df(M):
 
 
 def count_samples(samples, samples_dictionary):
+    
+    """
+    Count occurrences of samples in a batch using a samples dictionary.
+
+    Args:
+        samples (list): List of samples to count occurrences for.
+        samples_dictionary (dict): Dictionary containing unique samples as keys and associated values.
+
+    Returns:
+        list: A list containing the count of occurrences for each sample in the input batch.
+
+    Note:
+        This function counts the occurrences of each sample in the provided batch using a dictionary of unique
+        samples. It iterates through the batch and compares each sample to the unique samples in the dictionary.
+
+    """
+        
     # we can't use np.unique() because it returns SORTED list
     batch_size = len(samples)
     n_unique = len(samples_dictionary.keys())
@@ -2874,7 +3052,25 @@ def count_samples(samples, samples_dictionary):
     return n_counts
 
 def get_result_df(samples, M, dict_prob, exact_prob = True):
-    
+    """
+    Create a DataFrame containing results for given samples, including probabilities and counts.
+
+    Args:
+        samples (list): List of samples for which results will be generated.
+        M (numpy.ndarray): The input matrix used to compute probabilities.
+        dict_prob (dict): Dictionary containing approximate probabilities for each sample.
+        exact_prob (bool, optional): Flag indicating whether to include exact probabilities in the DataFrame.
+                                     Defaults to True.
+
+    Returns:
+        pandas.DataFrame: A DataFrame containing results for each sample, including counts, exact probabilities
+                          (if applicable), and approximate probabilities.
+
+    Note:
+        This function generates a DataFrame with various result metrics for each sample in the provided list.
+        It computes counts, and if specified, exact probabilities and approximate probabilities for each sample.
+
+    """
     if exact_prob == True:
         samples_dictionary = {
             convert_list_to_str(s): [sum(s),  prob_exact(s, M) ] for s in samples
@@ -2937,6 +3133,22 @@ def get_result_df(samples, M, dict_prob, exact_prob = True):
         return df
         
 def get_dict_format(df):
+    """
+    Generate a dictionary of format specifiers for DataFrame columns.
+
+    Args:
+        df (pandas.DataFrame): The DataFrame for which format specifiers will be generated.
+
+    Returns:
+        dict: A dictionary where keys are column names containing "probability" and values are format specifiers.
+
+    Note:
+        This function generates a dictionary of format specifiers suitable for formatting specific columns of a DataFrame.
+        Columns containing the word "probability" in their names will have a format specifier of "{:.3e}" to represent
+        values in scientific notation with three decimal places.
+
+    """
+        
     dict_format = {}
     for key in df.keys():
         if "probability" in key: 
@@ -2946,36 +3158,97 @@ def get_dict_format(df):
 
 ### Metrics
 def relative_weighted_error(p, q):
-    
+    """
+    Calculate the relative weighted error (RWE) between two lists of values.
+
+    Parameters:
+    p (list): List of actual values.
+    q (list): List of predicted values.
+
+    Returns:
+    float: The relative weighted error value.
+    """
     rwe = np.mean([abs(1 - p[i]/q[i]) for i in range(len(p))])
     
     return rwe
 
 def cosine_similarity(p, q):
+    """
+    Calculate the cosine similarity between two lists of values.
+
+    Parameters:
+    p (list): List of actual values.
+    q (list): List of predicted values.
+    
+    Returns:
+    float: The cosine similarity value.
+    """
     
     cs = sum([p[i]*q[i] for i in range(len(p))])/(sum([p**2 for p in p])*sum([q**2 for q in q]))**0.5
     
     return cs
 
 def mean_absolute_percentage_error(p, q):
+    """
+    Calculate the mean absolute percentage error (MAPE) between two lists of values.
+
+    Parameters:
+    p (list): List of actual values.
+    q (list): List of predicted values.
+
+    Returns:
+    float: The mean absolute percentage error value.
+    """
     
     mape = np.mean([abs(1 - q[i]/p[i]) for i in range(len(p))])
     
     return mape
 
 def fidelity(p, q):
+    """
+    Calculate the fidelity between two lists of values.
+
+    Parameters:
+    p (list): List of actual values.
+    q (list): List of predicted values.
+
+    Returns:
+    float: The fidelity value.
+    """
 
     f = sum([(p[i]*q[i])**0.5 for i in range(len(p))])**2
 
     return f
 
 def total_variation_distance(p, q):
+    
+    """
+    Calculate the total variation distance (TVD) between two lists of values.
+
+    Parameters:
+    p (list): List of actual values.
+    q (list): List of predicted values.
+
+    Returns:
+    float: The total variation distance value.
+    """
 
     tvd = max([abs(p[i]-q[i]) for i in range(len(p))])
         
     return tvd
 
 def cross_entropy(p, q):
+    
+    """
+    Calculate the cross-entropy between two lists of probability values.
+
+    Parameters:
+    p (list): List of actual probability values.
+    q (list): List of predicted probability values.
+
+    Returns:
+    float: The cross-entropy value.
+    """
 
     xe =  -sum([p[i]*np.log2(q[i]) for i in range(len(p))])
 
@@ -2983,6 +3256,16 @@ def cross_entropy(p, q):
 
 
 def get_tests_df(df): 
+    
+    """
+    Generate a DataFrame of various metrics comparing probabilities.
+
+    Parameters:
+    df (pd.DataFrame): DataFrame containing probability data.
+
+    Returns:
+    pd.DataFrame: A DataFrame containing different metric values for comparisons.
+    """
     
     m = len(df.index[0]) 
     
