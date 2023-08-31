@@ -1,4 +1,4 @@
-[![License] [license-shield]](license-url)
+[![License][license-shield]](license-url)
 [![LinkedIn][linkedin-shield]](linkedin-url)
 
 <p align="center">
