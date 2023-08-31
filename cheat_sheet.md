@@ -46,7 +46,7 @@ df_basis = get_basis_df(M)
 Find probability of a specific sample in DataFrame
 
 ```
-sample = [0]*m
+sample = [0,1,0,0,1,1,1,1,1]
 df_basis["probability_exact"].loc[str(sample)] 
 ```
 
