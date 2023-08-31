@@ -63,11 +63,14 @@ samples = import_samples(path, "/samples.dat")
 
 ## Compute submatrices according to samples
 
-`submatriсes_export(M, samples, path)`
+```
+submatriсes_export(M, samples, path)
+```
 
 ## Compute minors 
 
-```compute_minors()
+```
+compute_minors()
 ```
 
 Computes minors for all samples in `input` directory. 
