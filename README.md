@@ -11,9 +11,8 @@ Quantum devices seek to **Quantum Advantage**: a result beyond the capabilities 
     
 # Installation 
 
-
-To use the Quantum Budger on your local machine you need to download the repository and to have `Python 3` and the `g++` compiler installed. 
-    
+To use the Quantum Budger on your local machine, you need to download the repository and have `Python 3`, as well as the `g++` compiler, installed.
+We also recommend creating a virtual environment with the packages listed below.
 ## Codes and Resources Used
 
 * **Editor**: To run `tutorial.ipynb` file you need to install [Jupyter](https://jupyter.org/) enviroment. We used Jupyter Lab. 
