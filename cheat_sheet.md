@@ -102,7 +102,7 @@ cumulants = CumulantUtility(id_ = id_, n_moments = 4)
 probability_approx_2,probability_approx_3, probability_approx_4 = cumulants.prob_approx()
 ```
 
-### Compute probabilities for all samples
+## Compute probabilities for all samples
 
 ```
 dict_probabilities = get_approx_probabilities(path) #if you already have submatrices for samples
