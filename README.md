@@ -1,5 +1,5 @@
-[![MIT License][license-shield]][license-url]
-[![LinkedIn][linkedin-shield]][linkedin-url]
+[![License] [license-shield]](license-url)
+[![LinkedIn][linkedin-shield]](linkedin-url)
 
 <p align="center">
 <img src="images/qb_image_2.png" alt="Drawing" style="width: 300px;"/> 
@@ -126,10 +126,7 @@ For this github repository, the [Apache 2.0](https://www.apache.org/licenses/LIC
 
 <!-- MARKDOWN LINKS & IMAGES -->
 <!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[license-shield]: https://img.shields.io/github/license/anastasia-s-popova/Quantum-Badger.svg?style=for-the-badge
-[license-url]: https://github.com/anastasia-s-popova/Quantum-Badger/blob/main/LICENSE
+[license-shield]: https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&logo=apache&colorB=559
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
+[license-url]: https://opensource.org/licenses/Apache-2.0
 [linkedin-url]: https://www.linkedin.com/in/ppvanastya/
-[red-color]: #f03c15
-[green-color]: #c5f01
-[blue-color]: #1589F0
